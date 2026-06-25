@@ -1,8 +1,8 @@
 {
-  "current_occupancy": 5,
-  "total_entries_today": 6,
-  "total_exits_today": 1,
-  "last_updated": "2026-06-25T17:48:04.108450",
+  "current_occupancy": 6,
+  "total_entries_today": 0,
+  "total_exits_today": 0,
+  "last_updated": "2026-06-26T01:06:10.771841",
   "history": [
     {
       "timestamp": "2026-06-25T16:59:32.572545",
@@ -45,6 +45,19 @@
       "type": "entry",
       "student_id": "STU0183",
       "occupancy_after": 5
+    },
+    {
+      "timestamp": "2026-06-26T01:05:59.588762",
+      "type": "entry",
+      "student_id": "STU001",
+      "occupancy_after": 6
+    },
+    {
+      "timestamp": "2026-06-26T01:06:10.771812",
+      "type": "day_reset",
+      "final_occupancy": 6,
+      "total_entries": 7,
+      "total_exits": 1
     }
   ],
   "entries": {
@@ -52,6 +65,7 @@
     "STU0023": "2026-06-25T17:47:41.754506",
     "STU0029": "2026-06-25T17:47:50.857433",
     "STU0030": "2026-06-25T17:47:56.749789",
-    "STU0183": "2026-06-25T17:48:04.108412"
+    "STU0183": "2026-06-25T17:48:04.108412",
+    "STU001": "2026-06-26T01:05:59.588762"
   }
 }
