@@ -142,7 +142,9 @@ def _route_action(data: str, chat_id):
     if data == "train:buses":
         return last_train.buses_text, kb.train_menu()  # coroutine factory
     if data == "train:plan":
-        return last_train.PLAN_HINT, kb.train_menu()
+        return last_train.PLAN_INTRO, last_train.plan_location_keyboard()
+    if data.startswith("plan:"):  # multi-step trip planner (state in callback data)
+        return last_train.route_plan(data)
 
     logger.warning("Unhandled callback: %s", data)
     return None, None

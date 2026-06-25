@@ -11,6 +11,13 @@ can route taps to the right feature:
     gym:status | gym:recent | gym:popular | gym:sim_entry | gym:sim_exit | gym:reset
     dl:list | dl:upcoming | dl:stats | dl:modules | dl:add_module | dl:add_exam | dl:add_hw
     train:trains | train:buses | train:plan
+
+The trip planner is a stateless multi-step flow whose selections live in the
+callback data itself (keyboards built in features/last_train.py):
+
+    train:plan                  -> pick campus location
+    plan:loc:<loc_idx>          -> pick station
+    plan:res:<loc_idx>:<st_idx> -> show "can I catch it?" verdict
 """
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup

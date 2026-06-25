@@ -3,12 +3,18 @@
 Three parts mirror the web app's tabs:
   • Trains — static published last-train times (LTA has no live MRT countdown).
   • Buses  — live arrivals via the arrivelah API (server-side fetch here).
-  • Plan   — "can I catch the last train?" calculator (guided flow comes next pass).
+  • Plan   — "can I catch the last train?" calculator (button-driven guided flow).
 """
 
+import datetime
+from zoneinfo import ZoneInfo
+
 import httpx
-from telegram import Update
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import ContextTypes
+
+# SUTD is in Singapore; the bot may run anywhere, so anchor "now" to SGT.
+SGT = ZoneInfo("Asia/Singapore")
 
 # ── Static train data (ported from the web app) ───────────────────────
 HOME_STATION = {
@@ -93,7 +99,6 @@ async def buses_text() -> str:
 def _eta_mins(iso: str | None) -> str:
     if not iso:
         return "—"
-    import datetime
     try:
         diff = (datetime.datetime.fromisoformat(iso) - datetime.datetime.now(
             datetime.timezone.utc).astimezone()).total_seconds() / 60
@@ -103,15 +108,142 @@ def _eta_mins(iso: str | None) -> str:
     return "Arr" if m <= 0 else f"{m}m"
 
 
-# Plan-trip is interactive (location + leave time + station). Stubbed for now.
-PLAN_HINT = (
-    "🗺️ *Plan My Trip*\n\n"
-    "This will calculate whether you can still catch the last train, based on:\n"
-    "• where you are on campus (walk time)\n"
-    "• when you plan to leave\n"
-    "• which station you need\n\n"
-    "_Guided flow coming in the next pass._"
-)
+# ── Plan my trip ──────────────────────────────────────────────────────
+# Interactive port of the web app's "Plan Trip" tab. Telegram has no native
+# time picker, so we anchor the calculation to *now* (SGT) — the core question
+# is "can I still catch the last train if I leave now?". The flow is two taps:
+#   train:plan        → pick where you are  (plan:loc:<loc_idx>)
+#   plan:loc:<i>      → pick which station  (plan:res:<loc_idx>:<station_idx>)
+#   plan:res:<i>:<j>  → verdict per direction
+# State is encoded in the callback data, keeping the bot fully stateless.
+
+# Campus spots → walking minutes to Upper Changi MRT (ported from the web app).
+CAMPUS_LOCATIONS = [
+    ("⚽ Sports & Rec", 12),
+    ("🏛️ Building 1", 9),
+    ("🏛️ Building 2", 8),
+    ("📚 Library", 7),
+    ("🍜 Hostel / Canteen", 5),
+    ("🚪 Main Gate", 4),
+]
+
+SAFETY_MINS = 2  # buffer on top of walk time, matching the web app
+
+# Plannable stations: home station first, then the transfer stations.
+PLAN_STATIONS = [HOME_STATION] + TRANSFER_STATIONS
+
+PLAN_INTRO = "🗺️ *Plan My Trip*\n\nWhere are you right now?"
+
+
+def _to_mins(hhmm: str) -> int:
+    h, m = hhmm.split(":")
+    return int(h) * 60 + int(m)
+
+
+def _fmt_mins(n: int) -> str:
+    n %= 1440
+    return f"{n // 60:02d}:{n % 60:02d}"
+
+
+def _station_short(station: dict) -> str:
+    """'Upper Changi (EW4 · DT32)' → 'Upper Changi' for compact buttons."""
+    return station["name"].split(" (")[0]
+
+
+def plan_location_keyboard() -> InlineKeyboardMarkup:
+    rows = []
+    locs = list(enumerate(CAMPUS_LOCATIONS))
+    for i in range(0, len(locs), 2):
+        rows.append(
+            [
+                InlineKeyboardButton(name, callback_data=f"plan:loc:{idx}")
+                for idx, (name, _walk) in locs[i : i + 2]
+            ]
+        )
+    rows.append([InlineKeyboardButton("« Back", callback_data="menu:train")])
+    return InlineKeyboardMarkup(rows)
+
+
+def plan_station_keyboard(loc_idx: int) -> InlineKeyboardMarkup:
+    rows = []
+    for i in range(0, len(PLAN_STATIONS), 2):
+        row = []
+        for sidx in range(i, min(i + 2, len(PLAN_STATIONS))):
+            tag = "🏠" if sidx == 0 else "🔁"
+            row.append(
+                InlineKeyboardButton(
+                    f"{tag} {_station_short(PLAN_STATIONS[sidx])}",
+                    callback_data=f"plan:res:{loc_idx}:{sidx}",
+                )
+            )
+        rows.append(row)
+    rows.append([InlineKeyboardButton("« Change location", callback_data="train:plan")])
+    return InlineKeyboardMarkup(rows)
+
+
+def plan_result_keyboard(loc_idx: int) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [InlineKeyboardButton("🚉 Change station", callback_data=f"plan:loc:{loc_idx}")],
+            [InlineKeyboardButton("📍 Change location", callback_data="train:plan")],
+            [InlineKeyboardButton("« Back", callback_data="menu:train")],
+        ]
+    )
+
+
+def plan_result_text(loc_idx: int, station_idx: int) -> str:
+    name, walk = CAMPUS_LOCATIONS[loc_idx]
+    station = PLAN_STATIONS[station_idx]
+    now = datetime.datetime.now(SGT)
+    now_mins = now.hour * 60 + now.minute
+
+    lines = [
+        "🗺️ *Plan My Trip*",
+        f"📍 From *{name}* (~{walk} min walk)",
+        f"🚉 To *{station['name']}*",
+        f"🕐 Now {now.strftime('%H:%M')} · +{SAFETY_MINS} min safety\n",
+    ]
+    for label, trains in station["groups"]:
+        lines.append(f"_{label}_")
+        for direction, last in trains:
+            last_m = _to_mins(last)
+            # Last trains run past midnight; treat an already-passed time as tomorrow.
+            if last_m < now_mins - 90:
+                last_m += 1440
+            leave_by = last_m - walk - SAFETY_MINS
+            if now_mins <= leave_by:
+                buf = leave_by - now_mins
+                buf_str = f"{buf // 60}h {buf % 60}m" if buf >= 60 else f"{buf}m"
+                lines.append(
+                    f"  ✅ {direction} (last {last})\n"
+                    f"      leave by {_fmt_mins(leave_by)} · {buf_str} buffer"
+                )
+            else:
+                lines.append(
+                    f"  ❌ {direction} (last {last})\n"
+                    f"      too late — needed to leave by {_fmt_mins(leave_by)}"
+                )
+        lines.append("")
+    return "\n".join(lines).rstrip()
+
+
+def route_plan(data: str):
+    """Route a ``plan:*`` callback to its (text, keyboard). Returns (None, None)
+    for anything unrecognised so the dispatcher can log it."""
+    parts = data.split(":")
+    if len(parts) == 3 and parts[1] == "loc":
+        loc_idx = int(parts[2])
+        name, walk = CAMPUS_LOCATIONS[loc_idx]
+        text = (
+            f"🗺️ *Plan My Trip*\n\n"
+            f"📍 From *{name}* (~{walk} min walk)\n\n"
+            "Which station do you need?"
+        )
+        return text, plan_station_keyboard(loc_idx)
+    if len(parts) == 4 and parts[1] == "res":
+        loc_idx, station_idx = int(parts[2]), int(parts[3])
+        return plan_result_text(loc_idx, station_idx), plan_result_keyboard(loc_idx)
+    return None, None
 
 
 # ── /command entry points ─────────────────────────────────────────────
