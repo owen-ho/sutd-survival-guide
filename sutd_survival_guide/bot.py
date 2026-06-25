@@ -192,7 +192,17 @@ def main():
 
     db.init()  # create the SQLite schema + one-time JSON migration
 
-    app = Application.builder().token(BOT_TOKEN).post_init(_post_init).build()
+    # Generous network timeouts: the default 5s connect can flake on slow links.
+    app = (
+        Application.builder()
+        .token(BOT_TOKEN)
+        .post_init(_post_init)
+        .connect_timeout(20)
+        .read_timeout(20)
+        .write_timeout(20)
+        .pool_timeout(20)
+        .build()
+    )
 
     # Hub
     app.add_handler(CommandHandler(["start", "menu"], start))
@@ -224,7 +234,7 @@ def main():
     # Reminder delivery: check every 5 minutes (per-user lead times in db).
     if app.job_queue is not None:
         app.job_queue.run_repeating(
-            deadlines.check_reminders, interval=300, first=15
+            deadlines.check_reminders, interval=20, first=15
         )
     else:
         logger.warning(

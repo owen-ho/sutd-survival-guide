@@ -84,17 +84,25 @@ async def parse_datetime(text: str, now: datetime.datetime) -> datetime.datetime
 async def parse_reminder_offsets(text: str) -> list[int] | None:
     """Resolve a free-text reminder preference into lead times (minutes-before).
 
-    'a day before' → [1440]; '1 day and 2 hours before' → [1440, 120].
+    A single compound duration is ONE reminder summed across its units
+    ('3 hours and 21 minutes before' → [201]); only clearly-separate requests
+    yield several ('a day before and an hour before' → [1440, 60]).
     Returns a sorted (desc), de-duplicated, bounds-checked list, or None.
     """
     system = (
-        "Convert the user's reminder preference into lead times BEFORE a "
-        "deadline. Reply with ONLY a JSON array of integers, each being the "
-        "number of MINUTES before the deadline to send a reminder. Examples: "
-        "'a day before' -> [1440]; '1 day and 2 hours before' -> [1440, 120]; "
-        "'30 mins before' -> [30]; 'the day before and an hour before' -> "
-        "[1440, 60]; 'a week and a day before' -> [10080, 1440]. If you can't "
-        "interpret it, reply with exactly: NONE"
+        "Convert the user's reminder preference into one or more lead times "
+        "BEFORE a deadline. Reply with ONLY a JSON array of integers, each the "
+        "number of MINUTES before the deadline to send a reminder.\n"
+        "Combine vs. separate:\n"
+        "- A single duration built from several units is ONE reminder = the "
+        "SUM. E.g. '3 hours and 21 minutes before' -> [201]; '1 hour 30 "
+        "minutes before' -> [90]; '1 day and 2 hours before' -> [1560].\n"
+        "- Produce MULTIPLE numbers only when the user clearly wants separate "
+        "reminders (repeating 'before'/'again'/'also', or a list). E.g. 'a day "
+        "before and an hour before' -> [1440, 60]; 'remind me 1 week, 1 day, "
+        "and 1 hour before' -> [10080, 1440, 60].\n"
+        "More: 'a day before' -> [1440]; '30 mins before' -> [30]; '2 hours "
+        "before' -> [120]. If you can't interpret it, reply with exactly: NONE"
     )
     content = await _complete(system, text)
     if content is None or content.upper().startswith("NONE"):

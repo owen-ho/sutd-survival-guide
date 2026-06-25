@@ -1,8 +1,8 @@
 {
   "current_occupancy": 8,
-  "total_entries_today": 1,
+  "total_entries_today": 0,
   "total_exits_today": 0,
-  "last_updated": "2026-06-26T03:05:58.646888",
+  "last_updated": "2026-06-26T03:41:21.531205",
   "history": [
     {
       "timestamp": "2026-06-25T16:59:32.572545",
@@ -91,6 +91,55 @@
       "type": "entry",
       "student_id": "KUKUBIRD",
       "occupancy_after": 8
+    },
+    {
+      "timestamp": "2026-06-26T03:30:20.402431",
+      "type": "day_reset",
+      "final_occupancy": 8,
+      "total_entries": 1,
+      "total_exits": 0
+    },
+    {
+      "timestamp": "2026-06-26T03:30:22.575410",
+      "type": "day_reset",
+      "final_occupancy": 8,
+      "total_entries": 0,
+      "total_exits": 0
+    },
+    {
+      "timestamp": "2026-06-26T03:30:23.875065",
+      "type": "day_reset",
+      "final_occupancy": 8,
+      "total_entries": 0,
+      "total_exits": 0
+    },
+    {
+      "timestamp": "2026-06-26T03:38:59.822437",
+      "type": "day_reset",
+      "final_occupancy": 8,
+      "total_entries": 0,
+      "total_exits": 0
+    },
+    {
+      "timestamp": "2026-06-26T03:39:29.488929",
+      "type": "day_reset",
+      "final_occupancy": 8,
+      "total_entries": 0,
+      "total_exits": 0
+    },
+    {
+      "timestamp": "2026-06-26T03:41:15.220007",
+      "type": "day_reset",
+      "final_occupancy": 8,
+      "total_entries": 0,
+      "total_exits": 0
+    },
+    {
+      "timestamp": "2026-06-26T03:41:21.531191",
+      "type": "day_reset",
+      "final_occupancy": 8,
+      "total_entries": 0,
+      "total_exits": 0
     }
   ],
   "entries": {
