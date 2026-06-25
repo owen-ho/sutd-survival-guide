@@ -1,8 +1,8 @@
 {
-  "current_occupancy": 6,
-  "total_entries_today": 0,
+  "current_occupancy": 8,
+  "total_entries_today": 1,
   "total_exits_today": 0,
-  "last_updated": "2026-06-26T01:06:10.771841",
+  "last_updated": "2026-06-26T03:05:58.646888",
   "history": [
     {
       "timestamp": "2026-06-25T16:59:32.572545",
@@ -58,6 +58,39 @@
       "final_occupancy": 6,
       "total_entries": 7,
       "total_exits": 1
+    },
+    {
+      "timestamp": "2026-06-26T02:54:56.765568",
+      "type": "day_reset",
+      "final_occupancy": 6,
+      "total_entries": 0,
+      "total_exits": 0
+    },
+    {
+      "timestamp": "2026-06-26T03:02:08.018608",
+      "type": "day_reset",
+      "final_occupancy": 6,
+      "total_entries": 0,
+      "total_exits": 0
+    },
+    {
+      "timestamp": "2026-06-26T03:02:49.045948",
+      "type": "entry",
+      "student_id": "STU006",
+      "occupancy_after": 7
+    },
+    {
+      "timestamp": "2026-06-26T03:02:58.559463",
+      "type": "day_reset",
+      "final_occupancy": 7,
+      "total_entries": 1,
+      "total_exits": 0
+    },
+    {
+      "timestamp": "2026-06-26T03:05:58.646878",
+      "type": "entry",
+      "student_id": "KUKUBIRD",
+      "occupancy_after": 8
     }
   ],
   "entries": {
@@ -66,6 +99,8 @@
     "STU0029": "2026-06-25T17:47:50.857433",
     "STU0030": "2026-06-25T17:47:56.749789",
     "STU0183": "2026-06-25T17:48:04.108412",
-    "STU001": "2026-06-26T01:05:59.588762"
+    "STU001": "2026-06-26T01:05:59.588762",
+    "STU006": "2026-06-26T03:02:49.045948",
+    "KUKUBIRD": "2026-06-26T03:05:58.646878"
   }
 }
