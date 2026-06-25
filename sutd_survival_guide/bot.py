@@ -234,7 +234,7 @@ def main():
     # Reminder delivery: check every 5 minutes (per-user lead times in db).
     if app.job_queue is not None:
         app.job_queue.run_repeating(
-            deadlines.check_reminders, interval=20, first=15
+            deadlines.check_reminders, interval=300, first=15
         )
     else:
         logger.warning(
