@@ -1,0 +1,57 @@
+{
+  "current_occupancy": 5,
+  "total_entries_today": 6,
+  "total_exits_today": 1,
+  "last_updated": "2026-06-25T17:48:04.108450",
+  "history": [
+    {
+      "timestamp": "2026-06-25T16:59:32.572545",
+      "type": "entry",
+      "student_id": "STU001",
+      "occupancy_after": 1
+    },
+    {
+      "timestamp": "2026-06-25T16:59:32.574413",
+      "type": "entry",
+      "student_id": "STU002",
+      "occupancy_after": 2
+    },
+    {
+      "timestamp": "2026-06-25T16:59:32.576017",
+      "type": "exit",
+      "student_id": "STU001",
+      "occupancy_after": 1
+    },
+    {
+      "timestamp": "2026-06-25T17:47:41.754506",
+      "type": "entry",
+      "student_id": "STU0023",
+      "occupancy_after": 2
+    },
+    {
+      "timestamp": "2026-06-25T17:47:50.857433",
+      "type": "entry",
+      "student_id": "STU0029",
+      "occupancy_after": 3
+    },
+    {
+      "timestamp": "2026-06-25T17:47:56.749789",
+      "type": "entry",
+      "student_id": "STU0030",
+      "occupancy_after": 4
+    },
+    {
+      "timestamp": "2026-06-25T17:48:04.108412",
+      "type": "entry",
+      "student_id": "STU0183",
+      "occupancy_after": 5
+    }
+  ],
+  "entries": {
+    "STU002": "2026-06-25T16:59:32.574413",
+    "STU0023": "2026-06-25T17:47:41.754506",
+    "STU0029": "2026-06-25T17:47:50.857433",
+    "STU0030": "2026-06-25T17:47:56.749789",
+    "STU0183": "2026-06-25T17:48:04.108412"
+  }
+}

@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Last Train Home &middot; SUTD</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.2.0/tabler-icons.min.css" />
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0a1628;--surface:#111f35;--card:#162540;--card-border:#1e3355;
+  --text:#e8f0f8;--text-muted:#7a9cc0;--text-dim:#456080;
+  --ewl:#009645;--dtl:#005EC4;--ccl:#FA9E0D;--nel:#9B59B6;--nsl:#e2231a;
+  --green-bg:#0a2a18;--green-text:#4ade80;
+  --yellow-bg:#2a200a;--yellow-text:#facc15;
+  --red-bg:#2a0a0a;--red-text:#f87171;
+  --radius:14px;--radius-sm:8px;--radius-pill:100px;
+}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;min-height:100vh;-webkit-font-smoothing:antialiased}
+.topbar{background:var(--surface);border-bottom:1px solid var(--card-border);padding:0 1.25rem;display:flex;align-items:center;justify-content:space-between;height:56px;position:sticky;top:0;z-index:100}
+.topbar-brand{display:flex;align-items:center;gap:10px}
+.brand-icon{width:32px;height:32px;background:var(--dtl);border-radius:8px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:16px}
+.brand-name{font-family:'Space Grotesk',sans-serif;font-size:16px;font-weight:700;color:var(--text);letter-spacing:-0.2px}
+.brand-sub{font-size:11px;color:var(--text-muted);margin-top:1px}
+.topbar-right{display:flex;align-items:center;gap:10px}
+.live-pill{display:flex;align-items:center;gap:5px;background:var(--green-bg);color:var(--green-text);font-size:11px;font-weight:600;padding:4px 10px;border-radius:var(--radius-pill)}
+.live-dot{width:6px;height:6px;background:var(--green-text);border-radius:50%;animation:blink 2s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+.clock-display{font-family:'Space Grotesk',sans-serif;font-size:15px;font-weight:600;color:var(--text);letter-spacing:.5px}
+.page-wrap{max-width:480px;margin:0 auto;padding:1rem 1rem 5rem}
+.hero{background:#0f2444;border:1px solid var(--card-border);border-radius:var(--radius);padding:1.25rem;margin-bottom:1rem;position:relative;overflow:hidden}
+.hero::after{content:'';position:absolute;right:-30px;top:-30px;width:160px;height:160px;border-radius:50%;background:rgba(0,94,196,.1);pointer-events:none}
+.hero-label{font-size:11px;font-weight:600;color:var(--text-muted);letter-spacing:.8px;text-transform:uppercase;margin-bottom:4px}
+.hero-station{font-family:'Space Grotesk',sans-serif;font-size:22px;font-weight:700;color:var(--text);margin-bottom:2px}
+.hero-codes{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;align-items:center}
+.section-label{font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;margin:1.4rem 0 .65rem;display:flex;align-items:center;gap:6px}
+.section-label i{font-size:13px}
+.tab-bar{display:flex;gap:6px;margin-bottom:1.1rem;overflow-x:auto;padding-bottom:2px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.tab-bar::-webkit-scrollbar{display:none}
+.tab-btn{background:var(--surface);border:1px solid var(--card-border);color:var(--text-muted);font-size:13px;font-weight:500;padding:7px 16px;border-radius:var(--radius-pill);cursor:pointer;white-space:nowrap;font-family:'Inter',sans-serif;transition:background .15s,color .15s,border-color .15s;display:flex;align-items:center;gap:5px}
+.tab-btn i{font-size:14px}
+.tab-btn:hover{background:var(--card);color:var(--text)}
+.tab-btn.active{background:var(--dtl);color:#fff;border-color:var(--dtl)}
+.station-card,.bus-card{background:var(--card);border:1px solid var(--card-border);border-radius:var(--radius);padding:1rem 1.1rem;margin-bottom:.75rem}
+.station-head{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+.station-name-text{font-family:'Space Grotesk',sans-serif;font-size:15px;font-weight:600;color:var(--text)}
+.station-code-text{font-size:12px;color:var(--text-muted);margin-top:1px}
+.line-badge{font-size:10px;font-weight:700;padding:3px 7px;border-radius:5px;color:#fff;letter-spacing:.3px}
+.ewl{background:var(--ewl)}.dtl{background:var(--dtl)}.ccl{background:var(--ccl);color:#000}.nel{background:var(--nel)}.nsl{background:var(--nsl)}
+.sub-label{font-size:11px;font-weight:600;color:var(--text-dim);text-transform:uppercase;letter-spacing:.6px;padding:4px 8px 2px}
+.train-row{display:flex;align-items:center;justify-content:space-between;padding:8px 10px;background:var(--surface);border-radius:var(--radius-sm);margin-bottom:5px}
+.train-dir{font-size:12px;color:var(--text-muted);flex:1;padding-right:8px;line-height:1.4}
+.pills{display:flex;gap:4px;flex-shrink:0}
+.pill{font-family:'Space Grotesk',sans-serif;font-size:12px;font-weight:600;padding:3px 9px;border-radius:var(--radius-pill);min-width:42px;text-align:center}
+.pill-arriving{background:var(--green-bg);color:var(--green-text)}
+.pill-soon{background:var(--yellow-bg);color:var(--yellow-text)}
+.pill-normal{background:var(--surface);border:1px solid var(--card-border);color:var(--text)}
+.pill-last{background:var(--red-bg);color:var(--red-text)}
+.pill-gone{background:var(--surface);color:var(--text-dim)}
+.last-badge{font-size:10px;font-weight:600;background:var(--red-bg);color:var(--red-text);padding:2px 6px;border-radius:4px;margin-left:5px}
+.walk-note{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text-dim);margin-top:10px;padding-top:10px;border-top:1px solid var(--card-border)}
+.walk-note i{font-size:13px}
+.bus-stop-header{margin-bottom:10px}
+.bus-stop-name{font-family:'Space Grotesk',sans-serif;font-size:14px;font-weight:600;color:var(--text)}
+.bus-stop-meta{font-size:11px;color:var(--text-muted);margin-top:2px;display:flex;align-items:center;gap:5px}
+.bus-svc-row{display:flex;align-items:center;justify-content:space-between;padding:8px 10px;background:var(--surface);border-radius:var(--radius-sm);margin-bottom:5px}
+.bus-svc-left{display:flex;align-items:center;gap:8px}
+.bus-num{font-family:'Space Grotesk',sans-serif;font-size:14px;font-weight:700;color:#60a0d8;width:36px}
+.bus-dest{font-size:11px;color:var(--text-muted);max-width:120px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.load-badge{font-size:10px;font-weight:600;padding:2px 6px;border-radius:4px;margin-left:4px}
+.load-seats{background:#0a2a18;color:#4ade80}.load-stand{background:#2a200a;color:#facc15}.load-limited{background:#2a0a0a;color:#f87171}
+.plan-card{background:var(--card);border:1px solid var(--card-border);border-radius:var(--radius);padding:1.1rem;margin-bottom:.75rem}
+.plan-card h3{font-family:'Space Grotesk',sans-serif;font-size:15px;font-weight:600;color:var(--text);margin-bottom:12px;display:flex;align-items:center;gap:7px}
+.plan-card h3 i{color:var(--text-muted);font-size:16px}
+.loc-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:14px}
+.loc-btn{background:var(--surface);border:1px solid var(--card-border);color:var(--text-muted);font-size:12px;padding:9px 10px;border-radius:var(--radius-sm);cursor:pointer;text-align:left;font-family:'Inter',sans-serif;transition:all .15s;line-height:1.4}
+.loc-btn .loc-name{font-weight:500;color:var(--text);display:block}
+.loc-btn .loc-walk{font-size:11px;color:var(--text-dim)}
+.loc-btn:hover{background:var(--card-border)}
+.loc-btn.active{background:#0d2440;border-color:var(--dtl)}
+.loc-btn.active .loc-name{color:#60a8e8}
+.result-banner{border-radius:var(--radius-sm);padding:14px;display:flex;align-items:center;justify-content:space-between}
+.result-banner.ok{background:var(--green-bg)}.result-banner.warn{background:var(--yellow-bg)}.result-banner.late{background:var(--red-bg)}
+.result-label{font-size:12px;margin-bottom:3px}
+.result-banner.ok .result-label{color:#86efac}.result-banner.warn .result-label{color:#fde68a}.result-banner.late .result-label{color:#fca5a5}
+.result-time{font-family:'Space Grotesk',sans-serif;font-size:28px;font-weight:700}
+.result-banner.ok .result-time{color:var(--green-text)}.result-banner.warn .result-time{color:var(--yellow-text)}.result-banner.late .result-time{color:var(--red-text)}
+.result-right{text-align:right}
+.result-mins{font-size:13px;font-weight:500}
+.result-banner.ok .result-mins{color:#86efac}.result-banner.warn .result-mins{color:#fde68a}.result-banner.late .result-mins{color:#fca5a5}
+.result-status{font-size:12px;margin-top:3px}
+.result-banner.ok .result-status{color:var(--green-text)}.result-banner.warn .result-status{color:var(--yellow-text)}.result-banner.late .result-status{color:var(--red-text)}
+.info-note{display:flex;gap:7px;background:var(--surface);border:1px solid var(--card-border);border-radius:var(--radius-sm);padding:10px 12px;font-size:12px;color:var(--text-muted);line-height:1.6;margin-top:.5rem}
+.info-note i{font-size:14px;flex-shrink:0;margin-top:1px;color:var(--text-dim)}
+.refresh-btn{background:var(--surface);border:1px solid var(--card-border);color:var(--text-muted);font-size:12px;padding:6px 13px;border-radius:var(--radius-pill);cursor:pointer;font-family:'Inter',sans-serif;display:flex;align-items:center;gap:5px;transition:all .15s}
+.refresh-btn:hover{background:var(--card);color:var(--text)}
+.refresh-btn i{font-size:14px}
+.refresh-btn.spinning i{animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-state{text-align:center;padding:2rem 1rem;color:var(--text-dim);font-size:13px}
+.loading-state i{font-size:24px;display:block;margin-bottom:8px;animation:spin 1.2s linear infinite}
+.error-row{background:var(--red-bg);border:1px solid #3a1515;border-radius:var(--radius-sm);padding:10px 12px;font-size:12px;color:var(--red-text);margin-bottom:8px;display:flex;gap:7px;align-items:flex-start}
+.error-row i{flex-shrink:0;margin-top:1px}
+.last-updated{font-size:10px;color:var(--text-dim);text-align:right;margin-top:4px;margin-bottom:.5rem}
+.footer{position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-top:1px solid var(--card-border);display:flex;justify-content:space-around;padding:8px 0 max(8px, env(safe-area-inset-bottom));z-index:100}
+.footer-btn{display:flex;flex-direction:column;align-items:center;gap:3px;background:none;border:none;color:var(--text-dim);font-size:10px;font-family:'Inter',sans-serif;cursor:pointer;padding:4px 20px;border-radius:var(--radius-sm);transition:color .15s}
+.footer-btn i{font-size:22px}
+.footer-btn.active{color:#60a8e8}
+.footer-btn:hover{color:var(--text-muted)}
+@media(min-width:520px){.page-wrap{padding:1.5rem 1.5rem 5rem}}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-brand">
+    <div class="brand-icon"><i class="ti ti-train"></i></div>
+    <div>
+      <div class="brand-name">Last Train Home</div>
+      <div class="brand-sub">SUTD &middot; Upper Changi MRT</div>
+    </div>
+  </div>
+  <div class="topbar-right">
+    <div class="live-pill"><div class="live-dot"></div>LIVE</div>
+    <div class="clock-display" id="clock">--:--</div>
+  </div>
+</header>
+
+<main class="page-wrap">
+  <div class="hero">
+    <div class="hero-label">Departure station</div>
+    <div class="hero-station">Upper Changi MRT</div>
+    <div class="hero-codes">
+      <span class="line-badge ewl">EW4</span>
+      <span class="line-badge dtl">DT32</span>
+      <span style="font-size:12px;color:var(--text-muted);">~5 min walk from SUTD gate</span>
+    </div>
+  </div>
+
+
+  <div class="tab-bar">
+    <button class="tab-btn active" data-tab="trains" onclick="switchTab('trains',this)"><i class="ti ti-train"></i> Trains</button>
+    <button class="tab-btn" data-tab="buses" onclick="switchTab('buses',this)"><i class="ti ti-bus"></i> Buses</button>
+    <button class="tab-btn" data-tab="plan" onclick="switchTab('plan',this)"><i class="ti ti-map-pin"></i> Plan Trip</button>
+  </div>
+
+  <!-- TRAINS -->
+  <div id="tab-trains">
+    <div style="display:flex;align-items:center;justify-content:space-between">
+      <div class="section-label"><i class="ti ti-train"></i> MRT LAST TRAIN</div>
+    </div>
+    <div id="uc-trains"><div class="loading-state"><i class="ti ti-loader-2"></i>Loading&#8230;</div></div>
+    <div class="section-label" style="margin-top:1.5rem"><i class="ti ti-switch-horizontal"></i> Transfer stations</div>
+    <div id="transfer-trains"><div class="loading-state"><i class="ti ti-loader-2"></i>Loading&#8230;</div></div>
+  </div>
+
+  <!-- BUSES -->
+  <div id="tab-buses" style="display:none">
+    <div style="display:flex;align-items:center;justify-content:space-between">
+      <div class="section-label"><i class="ti ti-bus"></i> Live bus arrivals</div>
+      <button class="refresh-btn" id="refresh-buses" onclick="fetchAllBuses(true)"><i class="ti ti-refresh"></i> Refresh</button>
+    </div>
+    <div id="bus-section"><div class="loading-state"><i class="ti ti-loader-2"></i>Fetching live data&#8230;</div></div>
+    <div class="info-note">
+      <i class="ti ti-info-circle"></i>
+      Real-time arrivals via arrivelah API (LTA DataMall). Stops: Somapah Rd SUTD (96449), Upp Changi Rd East (96041 &amp; 96049), CBP Terminal (97009). Coloured badge = bus load.
+    </div>
+  </div>
+
+  <!-- PLAN -->
+  <div id="tab-plan" style="display:none">
+    <div class="plan-card">
+      <h3><i class="ti ti-clock"></i> When do you plan to leave?</h3>
+      <label style="font-size:12px;color:var(--text-dim);display:block">
+        <input id="plan-leave-time" type="time" onchange="computePlanPredictions()" style="width:100%;padding:10px;border-radius:8px;border:1px solid var(--card-border);background:var(--surface);color:var(--text);font-size:14px;font-family:monospace" />
+      </label>
+      <div style="font-size:11px;color:var(--text-dim);margin-top:6px">Current time: <span id="current-time-display">--:--</span></div>
+    </div>
+    <div class="plan-card">
+      <h3><i class="ti ti-map-pin"></i> Where are you right now?</h3>
+      <div class="loc-grid">
+        <button class="loc-btn active" data-walk="12" onclick="selectLoc(this)"><span class="loc-name">&#9917; Sports &amp; Rec</span><span class="loc-walk">~12 min walk</span></button>
+        <button class="loc-btn" data-walk="9" onclick="selectLoc(this)"><span class="loc-name">&#127963; Building 1</span><span class="loc-walk">~9 min walk</span></button>
+        <button class="loc-btn" data-walk="8" onclick="selectLoc(this)"><span class="loc-name">&#127963; Building 2</span><span class="loc-walk">~8 min walk</span></button>
+        <button class="loc-btn" data-walk="7" onclick="selectLoc(this)"><span class="loc-name">&#128218; Library</span><span class="loc-walk">~7 min walk</span></button>
+        <button class="loc-btn" data-walk="5" onclick="selectLoc(this)"><span class="loc-name">&#127836; Hostel / Canteen</span><span class="loc-walk">~5 min walk</span></button>
+        <button class="loc-btn" data-walk="4" onclick="selectLoc(this)"><span class="loc-name">&#128682; Main Gate</span><span class="loc-walk">~4 min walk</span></button>
+      </div>
+    </div>
+    <div class="plan-card">
+      <h3><i class="ti ti-switch-horizontal"></i> Do you need to change stations?</h3>
+      <div id="station-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:7px"></div>
+    </div>
+    <div id="plan-results"></div>
+    <div class="info-note">
+      <i class="ti ti-info-circle"></i>
+I Love SUTD    </div>
+  </div>
+</main>
+
+<nav class="footer">
+  <button class="footer-btn active" id="fn-trains" onclick="switchTab('trains',document.querySelector('[data-tab=trains]'));setFoot('fn-trains')"><i class="ti ti-train"></i>Trains</button>
+  <button class="footer-btn" id="fn-buses" onclick="switchTab('buses',document.querySelector('[data-tab=buses]'));setFoot('fn-buses')"><i class="ti ti-bus"></i>Buses</button>
+  <button class="footer-btn" id="fn-plan" onclick="switchTab('plan',document.querySelector('[data-tab=plan]'));setFoot('fn-plan')"><i class="ti ti-map-pin"></i>Plan</button>
+</nav>
+
+<script>
+// ── TRAIN DATA (published schedules — LTA has no live MRT countdown API) ──
+const TRAIN_STATIONS=[{id:'uc',name:'Upper Changi',codes:'EW4 &middot; DT32',lines:[{l:'EWL',c:'ewl'},{l:'DTL',c:'dtl'}],walkNote:'~5 min walk from SUTD main gate',groups:[{label:'East West Line',trains:[{dir:'&rarr; Tanah Merah / Pasir Ris',lastTime:'23:18',freq:10},{dir:'&rarr; Expo / Joo Koon',lastTime:'23:17',freq:10}]},{label:'Downtown Line',trains:[{dir:'&rarr; Expo / Buona Vista',lastTime:'23:41',freq:8},{dir:'&rarr; Bukit Panjang',lastTime:'23:23',freq:8}]}]}];
+const TRANSFER_STATIONS=[{name:'MacPherson',codes:'CC10 &middot; DT26',lines:[{l:'CCL',c:'ccl'},{l:'DTL',c:'dtl'}],groups:[{label:'Circle Line',trains:[{dir:'&rarr; Bartley / Dhoby Ghaut',lastTime:'23:34',freq:8},{dir:'&rarr; HarbourFront',lastTime:'23:45',freq:8}]},{label:'Downtown Line',trains:[{dir:'&rarr; Bukit Panjang',lastTime:'23:30',freq:8},{dir:'&rarr; Expo',lastTime:'23:50',freq:8}]}]},{name:'Tampines',codes:'EW2 &middot; DT32',lines:[{l:'EWL',c:'ewl'},{l:'DTL',c:'dtl'}],groups:[{label:'East West Line',trains:[{dir:'&rarr; Pasir Ris',lastTime:'23:52',freq:10},{dir:'&rarr; Joo Koon',lastTime:'00:01',freq:10}]}]},{name:'Serangoon',codes:'NE12 &middot; CC13',lines:[{l:'NEL',c:'nel'},{l:'CCL',c:'ccl'}],groups:[{label:'North East Line',trains:[{dir:'&rarr; Punggol',lastTime:'23:27',freq:8},{dir:'&rarr; HarbourFront',lastTime:'23:24',freq:8}]},{label:'Circle Line',trains:[{dir:'&rarr; Bartley',lastTime:'23:49',freq:8},{dir:'&rarr; HarbourFront',lastTime:'00:00',freq:8}]}]},{name:'Bishan',codes:'NS17 &middot; CC15',lines:[{l:'NSL',c:'nsl'},{l:'CCL',c:'ccl'}],groups:[{label:'North South Line',trains:[{dir:'&rarr; Jurong East / Woodlands',lastTime:'23:42',freq:9},{dir:'&rarr; Marina South Pier',lastTime:'00:00',freq:9}]},{label:'Circle Line',trains:[{dir:'&rarr; Bartley',lastTime:'23:49',freq:8},{dir:'&rarr; HarbourFront',lastTime:'00:00',freq:8}]}]}];
+
+// ── BUS STOPS (arrivelah live API) ──
+// 96449 = Somapah Rd SUTD (Bus 20)
+// 96041 = Upp Changi Rd E before Tropicana (Bus 2,5,24)
+// 96049 = Upp Changi Rd E opp Tropicana (Bus 2,5,24)
+// 97009 = Changi Business Pk Terminal (Bus 47,118)
+const BUS_STOPS=[
+  {code:'96449',name:'Somapah Rd (SUTD)',walk:'2 min walk',highlight:['20']},
+  {code:'96041',name:'Upp Changi Rd East',walk:'5 min walk',highlight:['2','5','24']},
+  {code:'96049',name:'Upp Changi Rd East (Opp)',walk:'5 min walk',highlight:['2','5','24']},
+  {code:'97009',name:'Changi Business Pk Terminal',walk:'8 min walk',highlight:['47','118']}
+];
+
+// ── HELPERS ──
+function getNow(){const d=new Date();return{h:d.getHours(),m:d.getMinutes(),s:d.getSeconds()}}
+function toMins(t){const[h,m]=t.split(':').map(Number);return h*60+m}
+function fromMins(n){const h=Math.floor(n/60)%24,m=n%60;return String(h).padStart(2,'0')+':'+String(m).padStart(2,'0')}
+function nowMins(){const n=getNow();return n.h*60+n.m}
+function minsUntil(t){let tgt=toMins(t);if(tgt<nowMins()-90)tgt+=1440;return tgt-nowMins()}
+function makePill(m,isLast){
+  if(m<-3)return'<span class="pill pill-gone">--</span>';
+  if(m<=0)return'<span class="pill pill-arriving">Arr</span>';
+  if(m<=3)return'<span class="pill pill-arriving">'+m+'m</span>';
+  if(m<=7)return'<span class="pill pill-soon">'+m+'m</span>';
+  if(isLast)return'<span class="pill pill-last">'+m+'m</span>';
+  return'<span class="pill pill-normal">'+m+'m</span>';
+}
+function apiPill(m){
+  if(m===null||m===undefined)return'<span class="pill pill-gone">--</span>';
+  if(m<=0)return'<span class="pill pill-arriving">Arr</span>';
+  if(m<=3)return'<span class="pill pill-arriving">'+m+'m</span>';
+  if(m<=7)return'<span class="pill pill-soon">'+m+'m</span>';
+  return'<span class="pill pill-normal">'+m+'m</span>';
+}
+function etaMins(iso){
+  if(!iso)return null;
+  const diff=Math.round((new Date(iso)-new Date())/60000);
+  return diff;
+}
+function loadLabel(type){
+  if(type==='SEA')return'<span class="load-badge load-seats">Seats</span>';
+  if(type==='SDA')return'<span class="load-badge load-stand">Standing</span>';
+  if(type==='LSD')return'<span class="load-badge load-limited">Limited</span>';
+  return'';
+}
+function nowStr(){const n=getNow();return String(n.h).padStart(2,'0')+':'+String(n.m).padStart(2,'0')+':'+String(n.s).padStart(2,'0')}
+
+// ── TRAIN RENDER ──
+function renderTrainGroup(g){
+  return '<div class="sub-label">'+g.label+'</div>' + g.trains.map(t=>{
+    return '<div class="train-row"><div class="train-dir">'+t.dir+'</div><div class="pills"><span class="pill pill-normal">Last: '+t.lastTime+'</span></div></div>';
+  }).join('');
+}
+function renderStationCard(s,showWalk){
+  const badges=s.lines.map(l=>'<span class="line-badge '+l.c+'">'+l.l+'</span>').join('');
+  const groups=s.groups.map(renderTrainGroup).join('<div style="height:4px"></div>');
+  const walk=showWalk&&s.walkNote?'<div class="walk-note"><i class="ti ti-walk"></i>'+s.walkNote+'</div>':'';
+  return'<div class="station-card"><div class="station-head">'+badges+'<div><div class="station-name-text">'+s.name+'</div><div class="station-code-text">'+s.codes+'</div></div></div>'+groups+walk+'</div>';
+}
+function renderTrains(manual){
+  if(manual){const b=document.getElementById('refresh-trains');b.classList.add('spinning');setTimeout(()=>b.classList.remove('spinning'),800)}
+  document.getElementById('uc-trains').innerHTML=TRAIN_STATIONS.map(s=>renderStationCard(s,true)).join('');
+  document.getElementById('transfer-trains').innerHTML=TRANSFER_STATIONS.map(s=>renderStationCard(s,false)).join('');
+}
+
+// Render a compact summary of last train times for all configured stations
+function renderLastTrains(){
+  const el=document.getElementById('last-trains-summary');
+  if(!el) return;
+  const stations = TRAIN_STATIONS.concat(TRANSFER_STATIONS);
+  const html = stations.map(s=>{
+    const groups = (s.groups||[]).map(g=>{
+      const rows = (g.trains||[]).map(t=>{
+        return '<div class="train-row"><div class="train-dir">'+t.dir+'</div><div class="pills"><span class="pill pill-normal">Last: '+t.lastTime+'</span></div></div>';
+      }).join('');
+      return '<div class="sub-label">'+g.label+'</div>'+rows;
+    }).join('<div style="height:6px"></div>');
+    return '<div class="plan-card" style="margin-bottom:0.6rem;padding:10px;\"><div style="font-weight:700;margin-bottom:6px;">'+s.name+' <span style="font-size:12px;color:var(--text-muted);margin-left:6px;">'+(s.codes||'')+'</span></div>'+groups+'</div>';
+  }).join('');
+  el.innerHTML = html;
+}
+
+// ── BUS RENDER (live arrivelah) ──
+async function fetchBusStop(code){
+  const r=await fetch('https://arrivelah2.busrouter.sg/?id='+code);
+  if(!r.ok)throw new Error('HTTP '+r.status);
+  return r.json();
+}
+function renderBusStop(stop,data){
+  const svcs=(data.services||[]);
+  // Show highlighted services first, then up to 5 others
+  const hi=svcs.filter(s=>stop.highlight.includes(s.no));
+  const rest=svcs.filter(s=>!stop.highlight.includes(s.no)).slice(0,Math.max(0,5-hi.length));
+  const toShow=[...hi,...rest];
+  if(!toShow.length){
+    return'<div class="bus-card"><div class="bus-stop-header"><div class="bus-stop-name">'+stop.name+'</div><div class="bus-stop-meta"><i class="ti ti-map-pin" style="font-size:11px"></i> Stop '+stop.code+' &middot; '+stop.walk+'</div></div><div style="font-size:12px;color:var(--text-dim);padding:6px 0">No buses currently operating at this stop</div></div>';
+  }
+  const rows=toShow.map(svc=>{
+    const m1=etaMins(svc.next&&svc.next.time);
+    const m2=etaMins(svc.subsequent&&svc.subsequent.time);
+    const m3=etaMins(svc.next3&&svc.next3.time);
+    const load=svc.next?loadLabel(svc.next.load):'';
+    const isHi=stop.highlight.includes(svc.no);
+    const numStyle=isHi?'color:#60d8a0;font-weight:700':'';
+    return'<div class="bus-svc-row"><div class="bus-svc-left"><span class="bus-num" style="'+numStyle+'">'+svc.no+'</span>'+load+'</div><div class="pills">'+[m1,m2,m3].map(apiPill).join('')+'</div></div>';
+  }).join('');
+  return'<div class="bus-card"><div class="bus-stop-header"><div class="bus-stop-name">'+stop.name+'</div><div class="bus-stop-meta"><i class="ti ti-map-pin" style="font-size:11px"></i> Stop '+stop.code+' &middot; '+stop.walk+'</div></div>'+rows+'</div>';
+}
+async function fetchAllBuses(manual){
+  if(manual){const b=document.getElementById('refresh-buses');if(b){b.classList.add('spinning');setTimeout(()=>b.classList.remove('spinning'),800)}}
+  const el=document.getElementById('bus-section');
+  if(!el)return;
+  el.innerHTML='<div class="loading-state"><i class="ti ti-loader-2"></i>Fetching live data from LTA&hellip;</div>';
+  try{
+    const results=await Promise.allSettled(BUS_STOPS.map(s=>fetchBusStop(s.code)));
+    let html='';
+    results.forEach((r,i)=>{
+      if(r.status==='fulfilled') html+=renderBusStop(BUS_STOPS[i],r.value);
+      else html+='<div class="bus-card"><div class="error-row"><i class="ti ti-alert-circle"></i>Failed to load '+BUS_STOPS[i].name+' ('+BUS_STOPS[i].code+')</div></div>';
+    });
+    html+='<div class="last-updated">Updated '+nowStr()+'&nbsp;&middot;&nbsp;Auto-refreshes every 30s</div>';
+    el.innerHTML=html;
+  }catch(e){
+    el.innerHTML='<div class="error-row"><i class="ti ti-alert-circle"></i>Could not reach arrivelah API. Check your connection.</div>';
+  }
+}
+
+// ── PLAN ──
+let selWalk=12;
+let selStation=null;
+function selectLoc(btn){
+  document.querySelectorAll('.loc-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  selWalk=parseInt(btn.dataset.walk);
+  renderStationGrid();
+  computePlanPredictions();
+}
+function renderStationGrid(){
+  const el=document.getElementById('station-grid');
+  if(!el)return;
+  const stations=[TRAIN_STATIONS[0]].concat(TRANSFER_STATIONS);
+  const html=stations.map(s=>{
+    const isSelected=selStation===s.name;
+    const classStr='loc-btn'+(isSelected?' active':'');
+    const destLabel=s.name===TRAIN_STATIONS[0].name?'(Home station)':'(Transfer)';
+    return '<button class="'+classStr+'" onclick="selectStation(this,\''+s.name+'\')"><span class="loc-name">'+s.name+'</span><span class="loc-walk">'+destLabel+'</span></button>';
+  }).join('');
+  el.innerHTML=html;
+}
+function selectStation(btn,name){
+  document.querySelectorAll('#station-grid .loc-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  selStation=name;
+  computePlanPredictions();
+}
+function computePlanPredictions(){
+  const el=document.getElementById('plan-results');
+  if(!el||!selStation)return;
+  const station=TRAIN_STATIONS.concat(TRANSFER_STATIONS).find(s=>s.name===selStation);
+  if(!station)return;
+  
+  const planLeaveInput = document.getElementById('plan-leave-time').value;
+  const planLeaveM = planLeaveInput ? parseTimeToMins(planLeaveInput) : nowMins();
+  
+  let html='<div class="plan-card" style="padding:1rem"><h3 style="font-size:14px;margin-bottom:12px"><i class="ti ti-clock"></i> Catch last train</h3>';
+  const trains=(station.groups||[]).flatMap(g=>g.trains);
+  trains.forEach(t=>{
+    let lastM=toMins(t.lastTime);
+    // Normalize: if last train time < current/planned time, it's next day
+    if(lastM < planLeaveM - 90) lastM += 1440;
+    
+    const leaveByM=lastM-selWalk-2; // 2 min safety
+    const leaveByStr=fromMins(leaveByM<0?leaveByM+1440:leaveByM);
+    const canMakeIt = (planLeaveM <= leaveByM);
+    const bufferMins = canMakeIt ? (leaveByM - planLeaveM) : (leaveByM - planLeaveM);
+    
+    let statusHtml='';
+    let pillClass='pill-normal';
+    
+    if(canMakeIt){
+      pillClass='pill-arriving';
+      const bufferStr = bufferMins>=0 ? (Math.floor(bufferMins/60)+'h '+(bufferMins%60)+'m buffer') : 'Tight';
+      statusHtml = '<div style="display:flex;gap:8px;align-items:center"><span style="font-family:\'Space Grotesk\',sans-serif;font-size:18px;font-weight:700;color:var(--green-text)">✓ Can catch</span><span class="pill '+pillClass+'">'+bufferStr+'</span></div>';
+    }else{
+      pillClass='pill-last';
+      statusHtml = '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span style="font-family:\'Space Grotesk\',sans-serif;font-size:16px;font-weight:700;color:var(--red-text)">✗ Cannot catch</span><div style="width:100%;margin-top:6px;padding:8px;background:var(--surface);border-radius:6px;border-left:3px solid var(--red-text)"><div style="font-size:11px;color:var(--text-dim)">You need to leave by</div><div style="font-family:\'Space Grotesk\',sans-serif;font-size:20px;font-weight:700;color:var(--text)">'+leaveByStr+'</div></div></div>';
+    }
+    
+    html+='<div class="train-row" style="flex-direction:column;align-items:flex-start;padding:12px 10px"><div class="train-dir">'+t.dir+'</div>'+statusHtml+'</div>';
+  });
+  html+='</div>';
+  el.innerHTML=html;
+}
+
+// ── TABS / CLOCK ──
+let currentTab='trains';
+function switchTab(tab,btn){
+  currentTab=tab;
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  if(btn)btn.classList.add('active');
+  ['trains','buses','plan'].forEach(t=>{document.getElementById('tab-'+t).style.display=t===tab?'block':'none'});
+  if(tab==='buses')fetchAllBuses(false);
+  if(tab==='plan'){renderStationGrid();}
+}
+function setFoot(id){['fn-trains','fn-buses','fn-plan'].forEach(i=>document.getElementById(i).classList.toggle('active',i===id))}
+function updateClock(){
+  const n=getNow();
+  document.getElementById('clock').textContent=String(n.h).padStart(2,'0')+':'+String(n.m).padStart(2,'0');
+  document.getElementById('current-time-display').textContent=String(n.h).padStart(2,'0')+':'+String(n.m).padStart(2,'0');
+}
+
+// Prediction helpers & destinations
+// Prediction helpers
+function parseTimeToMins(v){if(!v)return null;const [h,m]=v.split(':').map(Number);return h*60+m}
+function padTimeInput(n){return String(n).padStart(2,'0')}
+function timeNowInput(){const d=new Date();return padTimeInput(d.getHours())+':'+padTimeInput(d.getMinutes())}
+
+// ── INIT ──
+updateClock();renderTrains(false);renderLastTrains();renderStationGrid();
+const planLeaveEl = document.getElementById('plan-leave-time');
+if(planLeaveEl) planLeaveEl.value = timeNowInput();
+setInterval(updateClock,1000);
+setInterval(()=>{renderTrains(false);renderLastTrains();if(currentTab==='buses')fetchAllBuses(false)},30000);
+</script>
+</body>
+</html>
