@@ -6,7 +6,7 @@ inline-button menu:
 | Feature | Origin | Status this pass |
 |---------|--------|------------------|
 | 🏋️ Gym Crowd Tracker | `aloysius_gym_crowd_tracker/` | Status / Recent / Popular wired (reuses `GymTracker`). Sim entry/exit + reset routed (sim via command for now). |
-| 📅 Deadline Notifier | `dylan_deadline_notifier/` | List / Upcoming / Modules / Stats wired (reads same `bot_data.json`). Add flows routed to hints. |
+| 📅 Deadline Notifier | `dylan_deadline_notifier/` | List / Upcoming / Modules / Stats wired (reads same `bot_data.json`). Add module/exam/homework wired — slash commands **and** guided button flow, with natural-language due dates via Agnes AI. |
 | 🚆 Last Train Home | `gabriel_sutd_last_train_home.html` | Static last-train times + live buses (arrivelah) wired. Trip planner stubbed. |
 
 ## How navigation works
@@ -22,7 +22,8 @@ keyboards.py      # inline keyboards + callback-data scheme
 settings.py       # token + paths to the original apps' data files
 features/
   gym.py          # wraps Aloysius' GymTracker
-  deadlines.py    # reads Dylan's bot_data.json
+  deadlines.py    # reads + writes Dylan's bot_data.json (add flows)
+  ai.py           # OpenAI-compatible client (Agnes AI) for free-text dates
   last_train.py   # Gabriel's train data + live bus fetch
 ```
 
@@ -43,6 +44,6 @@ python bot.py
 ## What's intentionally left for the next pass
 
 - Gym **simulate entry/exit** as an in-chat prompt (currently via `/simulate_entry STU001`).
-- Deadline **add module/exam/homework** as guided conversations.
-- Last Train **trip planner** flow (campus location → leave time → station).
-- Porting Dylan's 12-hour reminder job onto the unified bot's `JobQueue`.
+- Porting Dylan's 12-hour reminder job onto the unified bot's `JobQueue` (adds
+  land in the shared `bot_data.json`, so Dylan's standalone scheduler still
+  picks them up in the meantime).

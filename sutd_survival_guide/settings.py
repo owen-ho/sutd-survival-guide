@@ -16,6 +16,13 @@ load_dotenv(Path(__file__).resolve().parent / ".env")
 
 BOT_TOKEN = os.getenv("BOT_TOKEN", "YOUR_BOT_TOKEN_HERE")
 
+# ── Agnes AI (OpenAI-compatible) — natural-language date parsing ───────
+# Used to turn free-text due dates ("next Fri 2pm") into a timestamp. If the
+# token is unset, the deadline flow falls back to the strict YYYY-MM-DD HH:MM.
+AGNES_AI_TOKEN = os.getenv("AGNES_AI_TOKEN", "")
+AGNES_AI_BASE_URL = os.getenv("AGNES_AI_BASE_URL", "https://apihub.agnes-ai.com/v1")
+AGNES_AI_MODEL = os.getenv("AGNES_AI_MODEL", "agnes-2.0-flash")
+
 # ── Data files reused from the original apps ──────────────────────────
 GYM_DATA_FILE = ROOT / "aloysius_gym_crowd_tracker" / "gym_data.json"
 DEADLINE_DATA_FILE = ROOT / "dylan_deadline_notifier" / "bot_data.json"

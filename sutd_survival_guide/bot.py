@@ -20,6 +20,8 @@ from telegram.ext import (
     CallbackQueryHandler,
     CommandHandler,
     ContextTypes,
+    MessageHandler,
+    filters,
 )
 
 import keyboards as kb
@@ -88,14 +90,15 @@ async def on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     data = query.data
     chat_id = update.effective_chat.id
 
-    # Navigation between menus.
+    # Navigation between menus cancels any half-finished deadline add flow.
     if data in SUBMENUS:
+        context.user_data.pop("dl_flow", None)
         text, keyboard = SUBMENUS[data]
         await _safe_edit(query, text, keyboard())
         return
 
     # Feature actions: render text, keep the submenu's keyboard for easy back-nav.
-    text, keyboard = _route_action(data, chat_id)
+    text, keyboard = _route_action(data, chat_id, context)
     if text is None:
         return
     if callable(text):  # async coroutine factory (live bus fetch)
@@ -104,7 +107,7 @@ async def on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await _safe_edit(query, text, keyboard)
 
 
-def _route_action(data: str, chat_id):
+def _route_action(data: str, chat_id, context):
     """Return (text_or_coro, keyboard) for a feature action callback."""
     # ── Gym ──
     if data == "gym:status":
@@ -130,11 +133,16 @@ def _route_action(data: str, chat_id):
     if data == "dl:stats":
         return deadlines.stats_text(chat_id), kb.deadlines_menu()
     if data == "dl:add_module":
-        return deadlines.ADD_MODULE_HINT, kb.deadlines_menu()
+        return deadlines.start_add_module(context)
     if data == "dl:add_exam":
-        return deadlines.ADD_EXAM_HINT, kb.deadlines_menu()
+        return deadlines.start_add_item(chat_id, "exam", context)
     if data == "dl:add_hw":
-        return deadlines.ADD_HW_HINT, kb.deadlines_menu()
+        return deadlines.start_add_item(chat_id, "homework", context)
+    if data.startswith("dl:pick:"):
+        return deadlines.pick_module(chat_id, data, context)
+    if data == "dl:cancel":
+        context.user_data.pop("dl_flow", None)
+        return "✖️ Cancelled.", kb.deadlines_menu()
 
     # ── Last Train ──
     if data == "train:trains":
@@ -174,6 +182,16 @@ def main():
     app.add_handler(CommandHandler("simulate_exit", gym.cmd_simulate_exit))
     app.add_handler(CommandHandler("trains", last_train.cmd_trains))
     app.add_handler(CommandHandler("buses", last_train.cmd_buses))
+
+    # Deadline add commands (also reachable via the guided button flow below).
+    app.add_handler(CommandHandler("add_module", deadlines.cmd_add_module))
+    app.add_handler(CommandHandler("add_exam", deadlines.cmd_add_exam))
+    app.add_handler(CommandHandler("add_hw", deadlines.cmd_add_hw))
+
+    # Free-text steps of the guided add flow (no-op unless a flow is active).
+    app.add_handler(
+        MessageHandler(filters.TEXT & ~filters.COMMAND, deadlines.handle_text)
+    )
 
     # One dispatcher for every inline button.
     app.add_handler(CallbackQueryHandler(on_callback))
