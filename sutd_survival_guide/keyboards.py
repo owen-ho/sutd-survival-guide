@@ -10,7 +10,7 @@ can route taps to the right feature:
 
     gym:status | gym:recent | gym:popular | gym:sim_entry | gym:sim_exit | gym:reset
     dl:list | dl:upcoming | dl:stats | dl:modules
-    dl:add_module | dl:join | dl:add_exam | dl:add_hw | dl:pick:* | dl:cancel
+    dl:add_module | dl:join | dl:add_exam | dl:add_hw | dl:remind | dl:pick:* | dl:cancel
     train:trains | train:buses | train:plan
 
 The trip planner is a stateless multi-step flow whose selections live in the
@@ -75,6 +75,7 @@ def deadlines_menu() -> InlineKeyboardMarkup:
                 InlineKeyboardButton("📝 Add exam", callback_data="dl:add_exam"),
                 InlineKeyboardButton("📚 Add homework", callback_data="dl:add_hw"),
             ],
+            [InlineKeyboardButton("⏰ Reminders", callback_data="dl:remind")],
             _back(),
         ]
     )

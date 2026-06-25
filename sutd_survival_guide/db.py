@@ -29,10 +29,14 @@ from settings import DEADLINE_DATA_FILE, DEADLINE_DB_FILE
 _CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"
 _CODE_LEN = 6
 
+# Default reminder lead time(s) in minutes-before-deadline (12h, as before).
+DEFAULT_OFFSETS = [720]
+
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS users (
-    chat_id    INTEGER PRIMARY KEY,
-    created_at TEXT NOT NULL
+    chat_id          INTEGER PRIMARY KEY,
+    created_at       TEXT NOT NULL,
+    reminder_offsets TEXT          -- JSON list of minutes-before; NULL = default
 );
 CREATE TABLE IF NOT EXISTS modules (
     id         INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -69,6 +73,14 @@ CREATE TABLE IF NOT EXISTS item_state (
     PRIMARY KEY (user_id, deadline_id),
     FOREIGN KEY (deadline_id) REFERENCES deadlines(id) ON DELETE CASCADE
 );
+CREATE TABLE IF NOT EXISTS reminders_sent (
+    user_id        INTEGER NOT NULL,
+    deadline_id    INTEGER NOT NULL,
+    offset_minutes INTEGER NOT NULL,
+    sent_at        TEXT NOT NULL,
+    PRIMARY KEY (user_id, deadline_id, offset_minutes),
+    FOREIGN KEY (deadline_id) REFERENCES deadlines(id) ON DELETE CASCADE
+);
 CREATE INDEX IF NOT EXISTS idx_deadlines_module ON deadlines(module_id);
 CREATE INDEX IF NOT EXISTS idx_subs_user ON module_subscriptions(user_id);
 """
@@ -100,10 +112,19 @@ def _clean(name: str) -> str:
 
 
 # ── Init + migration ───────────────────────────────────────────────────
+def _ensure_column(c, table: str, column: str, decl: str) -> None:
+    """Add a column to an existing table if a pre-WAL DB predates it."""
+    have = {r[1] for r in c.execute(f"PRAGMA table_info({table})")}
+    if column not in have:
+        c.execute(f"ALTER TABLE {table} ADD COLUMN {column} {decl}")
+
+
 def init() -> None:
     with _conn() as c:
         c.execute("PRAGMA journal_mode = WAL")
         c.executescript(_SCHEMA)
+        # Older DBs (created before per-user reminders) lack this column.
+        _ensure_column(c, "users", "reminder_offsets", "TEXT")
         empty = c.execute("SELECT COUNT(*) FROM modules").fetchone()[0] == 0
     if empty:
         _migrate_from_json()
@@ -272,7 +293,8 @@ def user_deadlines(user_id: int) -> list[dict]:
     """
     with _conn() as c:
         rows = c.execute(
-            "SELECT d.id, d.type, d.title, d.deadline, m.name AS module, "
+            "SELECT d.id, d.type, d.title, d.deadline, d.created_at, "
+            "       m.name AS module, "
             "       COALESCE(st.status, 'pending') AS state "
             "FROM deadlines d "
             "JOIN module_subscriptions s "
@@ -311,3 +333,51 @@ def stats(user_id: int) -> dict:
         "homework": sum(1 for i in items if i["type"] == "homework"),
         "modules": len(user_modules(user_id)),
     }
+
+
+# ── Reminders (per-user lead times + sent de-dup) ──────────────────────
+def all_users() -> list[int]:
+    with _conn() as c:
+        return [r[0] for r in c.execute("SELECT chat_id FROM users")]
+
+
+def get_reminder_offsets(user_id: int) -> list[int]:
+    """The user's reminder lead times (minutes-before), or the default."""
+    with _conn() as c:
+        row = c.execute(
+            "SELECT reminder_offsets FROM users WHERE chat_id = ?", (user_id,)
+        ).fetchone()
+    if not row or not row[0]:
+        return list(DEFAULT_OFFSETS)
+    try:
+        vals = [int(v) for v in json.loads(row[0])]
+    except Exception:
+        return list(DEFAULT_OFFSETS)
+    return vals or list(DEFAULT_OFFSETS)
+
+
+def set_reminder_offsets(user_id: int, minutes: list[int]) -> None:
+    ensure_user(user_id)
+    with _conn() as c:
+        c.execute(
+            "UPDATE users SET reminder_offsets = ? WHERE chat_id = ?",
+            (json.dumps(sorted(set(minutes), reverse=True)), user_id),
+        )
+
+
+def reminder_already_sent(user_id: int, deadline_id: int, offset_minutes: int) -> bool:
+    with _conn() as c:
+        return c.execute(
+            "SELECT 1 FROM reminders_sent "
+            "WHERE user_id = ? AND deadline_id = ? AND offset_minutes = ?",
+            (user_id, deadline_id, offset_minutes),
+        ).fetchone() is not None
+
+
+def mark_reminder_sent(user_id: int, deadline_id: int, offset_minutes: int) -> None:
+    with _conn() as c:
+        c.execute(
+            "INSERT OR IGNORE INTO reminders_sent "
+            "(user_id, deadline_id, offset_minutes, sent_at) VALUES (?, ?, ?, ?)",
+            (user_id, deadline_id, offset_minutes, _now()),
+        )

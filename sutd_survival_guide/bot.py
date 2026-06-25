@@ -145,6 +145,8 @@ def _route_action(data: str, chat_id, context):
         return deadlines.start_add_module(context)
     if data == "dl:join":
         return deadlines.start_join(context)
+    if data == "dl:remind":
+        return deadlines.start_reminders(chat_id, context)
     if data == "dl:add_exam":
         return deadlines.start_add_item(chat_id, "exam", context)
     if data == "dl:add_hw":
@@ -207,6 +209,7 @@ def main():
     app.add_handler(CommandHandler("join", deadlines.cmd_join))
     app.add_handler(CommandHandler("add_exam", deadlines.cmd_add_exam))
     app.add_handler(CommandHandler("add_hw", deadlines.cmd_add_hw))
+    app.add_handler(CommandHandler("remind", deadlines.cmd_remind))
 
     # Free-text steps of the guided add flow (no-op unless a flow is active).
     app.add_handler(
@@ -217,6 +220,17 @@ def main():
     app.add_handler(CallbackQueryHandler(on_callback))
 
     app.add_error_handler(on_error)
+
+    # Reminder delivery: check every 5 minutes (per-user lead times in db).
+    if app.job_queue is not None:
+        app.job_queue.run_repeating(
+            deadlines.check_reminders, interval=300, first=15
+        )
+    else:
+        logger.warning(
+            "JobQueue unavailable — reminders won't be sent. "
+            "Install the extra: pip install 'python-telegram-bot[job-queue]'"
+        )
 
     logger.info("SUTD Survival Guide bot starting…")
     app.run_polling(allowed_updates=Update.ALL_TYPES)

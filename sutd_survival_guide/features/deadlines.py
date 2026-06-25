@@ -11,6 +11,8 @@ strict YYYY-MM-DD HH:MM.
 """
 
 import datetime
+import logging
+import re
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import ContextTypes
@@ -18,6 +20,8 @@ from telegram.ext import ContextTypes
 import db
 import keyboards as kb
 from features import ai
+
+logger = logging.getLogger(__name__)
 
 MAX_MODULE_LEN = 100
 MAX_TITLE_LEN = 200
@@ -123,6 +127,145 @@ async def parse_when(text: str) -> datetime.datetime | None:
     return await ai.parse_datetime(text, datetime.datetime.now())
 
 
+# ── Reminders (per-user lead times) ────────────────────────────────────
+# Quick offline fallback for simple inputs like "1d, 2h" or "30m" or "90".
+_OFFSET_TOKEN = re.compile(
+    r"^\s*(\d+)\s*(d|day|days|h|hr|hrs|hour|hours|m|min|mins|minute|minutes)?\s*$",
+    re.IGNORECASE,
+)
+
+
+def _unit_to_mins(n: int, unit: str | None) -> int:
+    if not unit:
+        return n  # bare number = minutes
+    u = unit.lower()
+    if u.startswith("d"):
+        return n * 1440
+    if u.startswith("h"):
+        return n * 60
+    return n  # minutes
+
+
+def _strict_offsets(text: str) -> list[int] | None:
+    """Parse comma/'and'-separated simple offsets; None if anything is fuzzy."""
+    parts = re.split(r",|\band\b", text)
+    out = []
+    for p in parts:
+        if not p.strip():
+            continue
+        m = _OFFSET_TOKEN.match(p)
+        if not m:
+            return None
+        mins = _unit_to_mins(int(m.group(1)), m.group(2))
+        if 1 <= mins <= 30 * 24 * 60:
+            out.append(mins)
+    return sorted(set(out), reverse=True) or None
+
+
+async def _parse_offsets(text: str) -> list[int] | None:
+    strict = _strict_offsets(text)
+    if strict:
+        return strict
+    return await ai.parse_reminder_offsets(text)
+
+
+def humanize_offset(minutes: int) -> str:
+    d, rem = divmod(minutes, 1440)
+    h, m = divmod(rem, 60)
+    parts = []
+    if d:
+        parts.append(f"{d} day" + ("s" if d > 1 else ""))
+    if h:
+        parts.append(f"{h} hour" + ("s" if h > 1 else ""))
+    if m:
+        parts.append(f"{m} min" + ("s" if m > 1 else ""))
+    return " ".join(parts) or "0 min"
+
+
+def _offsets_pretty(offsets: list[int]) -> str:
+    return ", ".join(humanize_offset(o) for o in offsets)
+
+
+def offsets_text(chat_id) -> str:
+    pretty = _offsets_pretty(db.get_reminder_offsets(chat_id))
+    base = f"⏰ *Reminders*\n\nYou're reminded *{pretty}* before each deadline."
+    if ai.is_configured():
+        base += (
+            "\n\nTo change, send something like “a day and 2 hours before”, or "
+            "use /remind <when>."
+        )
+    else:
+        base += "\n\nTo change: /remind 1d, 2h  (use d / h / m, comma-separated)."
+    return base
+
+
+def set_confirm(offsets: list[int]) -> str:
+    return (
+        "✅ Reminder times updated.\n"
+        f"You'll be reminded {_offsets_pretty(offsets)} before each deadline."
+    )
+
+
+def _remind_error() -> str:
+    if ai.is_configured():
+        return (
+            "❓ I couldn't read that. Try e.g. “a day before”, “2 hours and 30 "
+            "minutes before”, or /remind 1d, 2h:"
+        )
+    return "❓ Couldn't read that. Use d / h / m, e.g. /remind 1d, 2h:"
+
+
+# ── Reminder delivery (JobQueue) ───────────────────────────────────────
+def _reminder_text(item: dict, due: datetime.datetime, now: datetime.datetime, off: int) -> str:
+    icon = "📝" if item["type"] == "exam" else "📚"
+    secs = (due - now).total_seconds()
+    when = f"~{secs / 3600:.0f}h" if secs >= 3600 else f"~{int(secs // 60)} min"
+    return (
+        f"⏰ Reminder — {humanize_offset(off)} before:\n\n"
+        f"{icon} {item['title']}\n"
+        f"📘 {item['module']}\n"
+        f"📅 Due {due.strftime(DT_FORMAT)} (in {when})"
+    )
+
+
+async def check_reminders(context: ContextTypes.DEFAULT_TYPE):
+    """JobQueue callback: fire each user's due reminders, once per offset.
+
+    Robust to downtime: a reminder fires whenever its lead-time has been reached
+    and the deadline is still in the future, not just in a tight time window.
+    """
+    now = datetime.datetime.now()
+    for chat_id in db.all_users():
+        offsets = db.get_reminder_offsets(chat_id)
+        if not offsets:
+            continue
+        for item in db.user_deadlines(chat_id):
+            if item["state"] != "pending":
+                continue
+            due = datetime.datetime.fromisoformat(item["deadline"])
+            if due <= now:
+                continue  # deadline passed — too late to remind
+            created = datetime.datetime.fromisoformat(item["created_at"])
+            for off in offsets:
+                remind_at = due - datetime.timedelta(minutes=off)
+                if remind_at > now:
+                    continue  # not yet time for this lead-time
+                if remind_at < created:
+                    # The lead time had already elapsed when the deadline was
+                    # added — firing "1 day before" on something due in an hour
+                    # would be misleading. (Still allows downtime catch-up.)
+                    continue
+                if db.reminder_already_sent(chat_id, item["id"], off):
+                    continue
+                try:
+                    await context.bot.send_message(
+                        chat_id, _reminder_text(item, due, now, off)
+                    )
+                    db.mark_reminder_sent(chat_id, item["id"], off)
+                except Exception as exc:
+                    logger.warning("Failed to send reminder to %s: %r", chat_id, exc)
+
+
 # ── Core mutations (shared by slash commands and the button flow) ──────
 def add_module(chat_id, name: str) -> str:
     """Create a shared module (or join an existing one by name)."""
@@ -165,16 +308,22 @@ def add_item(chat_id, kind: str, module: dict, title: str, dt: datetime.datetime
     db.add_deadline(module["id"], kind, title, dt.isoformat(), chat_id)
     members = db.user_modules(chat_id)
     count = next((m.get("members", 1) for m in members if m["id"] == module["id"]), 1)
-    reminder = dt - datetime.timedelta(hours=12)
     label = "Exam" if kind == "exam" else "Homework"
     icon = "📝" if kind == "exam" else "📚"
     shared = "" if count <= 1 else f"\n👥 Shared with {count - 1} other member(s)"
+    # Show which of *this user's* reminder lead times will actually fire.
+    now = datetime.datetime.now()
+    upcoming = [o for o in db.get_reminder_offsets(chat_id) if dt - datetime.timedelta(minutes=o) > now]
+    if upcoming:
+        reminder = f"⏰ Reminders: {_offsets_pretty(upcoming)} before"
+    else:
+        reminder = "⏰ Due too soon for your reminder lead times (/remind to change)"
     return (
         f"✅ {label} added:\n\n"
         f"{icon} {title}\n"
         f"📘 {module['name']}\n"
         f"📅 {dt.strftime(DT_FORMAT)}\n"
-        f"⏰ Reminder ~12h before: {reminder.strftime(DT_FORMAT)}"
+        f"{reminder}"
         f"{shared}"
     )
 
@@ -219,6 +368,24 @@ async def cmd_join(update: Update, context: ContextTypes.DEFAULT_TYPE):
         join_by_code(update.effective_chat.id, context.args[0]),
         parse_mode="Markdown",
     )
+
+
+async def cmd_remind(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.effective_chat.id
+    if not context.args:
+        await update.message.reply_text(offsets_text(chat_id), parse_mode="Markdown")
+        return
+    await _apply_reminder(update.message, chat_id, " ".join(context.args))
+
+
+async def _apply_reminder(message, chat_id, text: str, ok_markup=None, err_markup=None):
+    offsets = await _parse_offsets(text)
+    if offsets is None:
+        await message.reply_text(_remind_error(), reply_markup=err_markup)
+        return False
+    db.set_reminder_offsets(chat_id, offsets)
+    await message.reply_text(set_confirm(offsets), reply_markup=ok_markup)
+    return True
 
 
 async def cmd_add_exam(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -350,6 +517,17 @@ def start_join(context: ContextTypes.DEFAULT_TYPE):
     return PROMPT_JOIN, _cancel_kb()
 
 
+def start_reminders(chat_id, context: ContextTypes.DEFAULT_TYPE):
+    """Show current reminder lead times and invite the user to change them."""
+    context.user_data["dl_flow"] = {"kind": "remind"}
+    pretty = _offsets_pretty(db.get_reminder_offsets(chat_id))
+    if ai.is_configured():
+        how = "Send a new preference like “a day and 2 hours before”."
+    else:
+        how = "Send new lead times like “1d, 2h” (d / h / m, comma-separated)."
+    return f"⏰ *Reminders*\n\nCurrently *{pretty}* before each deadline.\n\n{how}", _cancel_kb()
+
+
 def start_add_item(chat_id, kind: str, context: ContextTypes.DEFAULT_TYPE):
     if not db.user_modules(chat_id):
         context.user_data.pop("dl_flow", None)
@@ -405,6 +583,16 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             join_by_code(chat_id, text), parse_mode="Markdown",
             reply_markup=kb.deadlines_menu(),
         )
+        return
+
+    if flow["kind"] == "remind":
+        # Keep the flow open on a parse failure so the user can simply retry.
+        ok = await _apply_reminder(
+            update.message, chat_id, text,
+            ok_markup=kb.deadlines_menu(), err_markup=_cancel_kb(),
+        )
+        if ok:
+            context.user_data.pop("dl_flow", None)
         return
 
     step = flow.get("step")

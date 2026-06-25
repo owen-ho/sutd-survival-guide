@@ -49,6 +49,23 @@ run; the old per-user `bot_data.json` is migrated in once):
 SQLite (WAL mode) gives this ACID writes and real uniqueness constraints —
 unlike the flat JSON, concurrent read-modify-writes can't clobber each other.
 
+## Reminders (per-user)
+
+The bot delivers reminders itself via PTB's `JobQueue` (checked every 5 min).
+Each user sets their own lead time(s) — default **12 h before** — and can have
+several (e.g. *1 day and 2 hours before*):
+
+- Set them with **⏰ Reminders** in the menu, or `/remind <when>`. The input is
+  natural language, parsed by Agnes AI (*"the day before and an hour before"* →
+  reminders at 1 day and 1 hour), with an offline `1d, 2h` fallback when AI is off.
+- Reminders fire once per `(user, deadline, lead-time)` and survive restarts
+  (a lead time that came due during downtime still fires). A lead time that had
+  already elapsed when the deadline was *added* is skipped, so a "1 day before"
+  reminder never fires on something due in an hour.
+
+> Needs the `job-queue` extra (already in `requirements.txt`). Without it the bot
+> still runs, but logs a warning and sends no reminders.
+
 ## Setup
 
 ```bash
@@ -62,6 +79,5 @@ python bot.py
 ## What's intentionally left for the next pass
 
 - Gym **simulate entry/exit** as an in-chat prompt (currently via `/simulate_entry STU001`).
-- Porting Dylan's 12-hour reminder job onto the unified bot's `JobQueue` (adds
-  land in the shared `bot_data.json`, so Dylan's standalone scheduler still
-  picks them up in the meantime).
+- **Done/remove** actions on deadlines in the unified bot (the schema tracks
+  per-user `item_state`, but there's no button/command for it yet).
