@@ -24,6 +24,7 @@ from telegram.ext import (
     filters,
 )
 
+import db
 import keyboards as kb
 from settings import BOT_TOKEN
 from features import deadlines, gym, last_train
@@ -45,6 +46,14 @@ WELCOME = (
 
 # ── Hub ────────────────────────────────────────────────────────────────
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # Deep link: t.me/<bot>?start=join-<code> → join a shared module, then menu.
+    if context.args:
+        reply = deadlines.handle_start_payload(update.effective_chat.id, context.args[0])
+        if reply is not None:
+            await update.message.reply_text(
+                reply, parse_mode=ParseMode.MARKDOWN, reply_markup=kb.deadlines_menu()
+            )
+            return
     await update.message.reply_text(
         WELCOME, parse_mode=ParseMode.MARKDOWN, reply_markup=kb.main_menu()
     )
@@ -134,6 +143,8 @@ def _route_action(data: str, chat_id, context):
         return deadlines.stats_text(chat_id), kb.deadlines_menu()
     if data == "dl:add_module":
         return deadlines.start_add_module(context)
+    if data == "dl:join":
+        return deadlines.start_join(context)
     if data == "dl:add_exam":
         return deadlines.start_add_item(chat_id, "exam", context)
     if data == "dl:add_hw":
@@ -167,11 +178,19 @@ async def on_error(update: object, context: ContextTypes.DEFAULT_TYPE):
     logger.error("Error while handling update: %r", context.error)
 
 
+async def _post_init(app: Application):
+    """Cache the bot username so deadline sharing can build t.me deep links."""
+    deadlines.BOT_USERNAME = app.bot.username
+    logger.info("Bot @%s ready", app.bot.username)
+
+
 def main():
     if BOT_TOKEN == "YOUR_BOT_TOKEN_HERE":
         raise SystemExit("Set BOT_TOKEN in sutd_survival_guide/.env (see .env.example)")
 
-    app = Application.builder().token(BOT_TOKEN).build()
+    db.init()  # create the SQLite schema + one-time JSON migration
+
+    app = Application.builder().token(BOT_TOKEN).post_init(_post_init).build()
 
     # Hub
     app.add_handler(CommandHandler(["start", "menu"], start))
@@ -183,8 +202,9 @@ def main():
     app.add_handler(CommandHandler("trains", last_train.cmd_trains))
     app.add_handler(CommandHandler("buses", last_train.cmd_buses))
 
-    # Deadline add commands (also reachable via the guided button flow below).
+    # Deadline add/join commands (also reachable via the guided button flow).
     app.add_handler(CommandHandler("add_module", deadlines.cmd_add_module))
+    app.add_handler(CommandHandler("join", deadlines.cmd_join))
     app.add_handler(CommandHandler("add_exam", deadlines.cmd_add_exam))
     app.add_handler(CommandHandler("add_hw", deadlines.cmd_add_hw))
 
