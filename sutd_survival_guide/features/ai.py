@@ -31,6 +31,12 @@ _PLACEHOLDER = "your_agnes_api_token_here"
 _MIN_OFFSET = 1
 _MAX_OFFSET = 30 * 24 * 60
 
+# The Agnes endpoint times out intermittently (~1 in 4 from some networks), so
+# one retry on the hot path turns most transient failures into a slightly slower
+# success instead of a dropped reply. Each attempt is still recorded in metrics.
+_HTTP_TIMEOUT = 20
+_MAX_ATTEMPTS = 2
+
 
 def is_configured() -> bool:
     return bool(AGNES_AI_TOKEN) and AGNES_AI_TOKEN != _PLACEHOLDER
@@ -52,22 +58,23 @@ async def _complete(system: str, user: str, *, task: str = "chat") -> str | None
             {"role": "user", "content": user.strip()},
         ],
     }
-    start = time.perf_counter()
-    try:
-        async with httpx.AsyncClient(timeout=20) as client:
-            resp = await client.post(
-                f"{AGNES_AI_BASE_URL.rstrip('/')}/chat/completions",
-                headers={"Authorization": f"Bearer {AGNES_AI_TOKEN}"},
-                json=payload,
+    url = f"{AGNES_AI_BASE_URL.rstrip('/')}/chat/completions"
+    headers = {"Authorization": f"Bearer {AGNES_AI_TOKEN}"}
+    for attempt in range(1, _MAX_ATTEMPTS + 1):
+        start = time.perf_counter()
+        try:
+            async with httpx.AsyncClient(timeout=_HTTP_TIMEOUT) as client:
+                resp = await client.post(url, headers=headers, json=payload)
+                resp.raise_for_status()
+                data = resp.json()
+            metrics.record(task, (time.perf_counter() - start) * 1000, data.get("usage"))
+            return data["choices"][0]["message"]["content"].strip()
+        except Exception as exc:  # network, auth, schema — all non-fatal here
+            metrics.record(task, (time.perf_counter() - start) * 1000, None, ok=False)
+            logger.warning(
+                "Agnes AI call failed (attempt %d/%d): %r", attempt, _MAX_ATTEMPTS, exc
             )
-            resp.raise_for_status()
-            data = resp.json()
-        metrics.record(task, (time.perf_counter() - start) * 1000, data.get("usage"))
-        return data["choices"][0]["message"]["content"].strip()
-    except Exception as exc:  # network, auth, schema — all non-fatal here
-        metrics.record(task, (time.perf_counter() - start) * 1000, None, ok=False)
-        logger.warning("Agnes AI call failed: %r", exc)
-        return None
+    return None
 
 
 async def parse_datetime(text: str, now: datetime.datetime) -> datetime.datetime | None:
