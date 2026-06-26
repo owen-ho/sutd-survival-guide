@@ -110,12 +110,15 @@ def _eta_mins(iso: str | None) -> str:
 
 # ── Plan my trip ──────────────────────────────────────────────────────
 # Interactive port of the web app's "Plan Trip" tab. Telegram has no native
-# time picker, so we anchor the calculation to *now* (SGT) — the core question
-# is "can I still catch the last train if I leave now?". The flow is two taps:
-#   train:plan        → pick where you are  (plan:loc:<loc_idx>)
-#   plan:loc:<i>      → pick which station  (plan:res:<loc_idx>:<station_idx>)
-#   plan:res:<i>:<j>  → verdict per direction
-# State is encoded in the callback data, keeping the bot fully stateless.
+# time picker, so the verdict defaults to *now* (SGT) and the user can type a
+# planned departure time to ask "can I still catch it if I leave at 11pm?".
+# The flow is button-driven:
+#   train:plan          → pick where you are   (plan:loc:<loc_idx>)
+#   plan:loc:<i>        → pick which station   (plan:res:<loc_idx>:<station_idx>)
+#   plan:res:<i>:<j>    → verdict per direction, anchored to now
+#   plan:time:<i>:<j>   → prompt for a leave time; the typed reply recomputes
+# Selections live in the callback data; the only transient state is the pending
+# "waiting for a typed time" flag, handled in bot.py via context.user_data.
 
 # Campus spots → walking minutes to Upper Changi MRT (ported from the web app).
 CAMPUS_LOCATIONS = [
@@ -181,9 +184,19 @@ def plan_station_keyboard(loc_idx: int) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(rows)
 
 
-def plan_result_keyboard(loc_idx: int) -> InlineKeyboardMarkup:
+def plan_result_keyboard(loc_idx: int, station_idx: int, leave_set: bool = False) -> InlineKeyboardMarkup:
+    # When a leave time is in play, offer to change it or snap back to "now";
+    # otherwise just offer to set one.
+    if leave_set:
+        time_row = [
+            InlineKeyboardButton("🕐 Change time", callback_data=f"plan:time:{loc_idx}:{station_idx}"),
+            InlineKeyboardButton("🔄 Use now", callback_data=f"plan:res:{loc_idx}:{station_idx}"),
+        ]
+    else:
+        time_row = [InlineKeyboardButton("🕐 Set leave time", callback_data=f"plan:time:{loc_idx}:{station_idx}")]
     return InlineKeyboardMarkup(
         [
+            time_row,
             [InlineKeyboardButton("🚉 Change station", callback_data=f"plan:loc:{loc_idx}")],
             [InlineKeyboardButton("📍 Change location", callback_data="train:plan")],
             [InlineKeyboardButton("« Back", callback_data="menu:train")],
@@ -191,28 +204,101 @@ def plan_result_keyboard(loc_idx: int) -> InlineKeyboardMarkup:
     )
 
 
-def plan_result_text(loc_idx: int, station_idx: int) -> str:
+def plan_time_prompt(loc_idx: int, station_idx: int) -> str:
+    name, _walk = CAMPUS_LOCATIONS[loc_idx]
+    station = PLAN_STATIONS[station_idx]
+    now = datetime.datetime.now(SGT)
+    return (
+        "🗺️ *Plan My Trip*\n\n"
+        f"📍 From *{name}*   🚉 To *{_station_short(station)}*\n\n"
+        "🕐 *What time will you leave?*\n"
+        "Type a time like `23:10`, `11pm`, or `2305` — I'll tell you which "
+        "trains you can still catch.\n\n"
+        f"_Current time: {now.strftime('%H:%M')} (SGT)._"
+    )
+
+
+def plan_time_keyboard(loc_idx: int, station_idx: int) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [InlineKeyboardButton("🔄 Use now instead", callback_data=f"plan:res:{loc_idx}:{station_idx}")],
+            [InlineKeyboardButton("« Back", callback_data="menu:train")],
+        ]
+    )
+
+
+def parse_leave_time(text: str) -> int | None:
+    """Parse a typed departure time into minutes-since-midnight, or None.
+
+    Accepts ``now``, 24h (``23:10``, ``23.10``, ``2310``, ``23``) and 12h
+    (``11pm``, ``11:10 pm``, ``1110pm``) forms — the shapes students actually
+    type. Returns None on anything unrecognisable so the caller can re-prompt.
+    """
+    s = text.strip().lower()
+    if s in ("now", "right now", "leaving now"):
+        now = datetime.datetime.now(SGT)
+        return now.hour * 60 + now.minute
+
+    ampm = None
+    if s.endswith("am"):
+        ampm, s = "am", s[:-2]
+    elif s.endswith("pm"):
+        ampm, s = "pm", s[:-2]
+    s = s.strip().replace(".", ":").replace(" ", "")
+
+    if ":" in s:
+        parts = s.split(":")
+        if len(parts) != 2:
+            return None
+        hh, mm = parts
+    elif s.isdigit() and len(s) in (3, 4):  # 2310 / 905
+        hh, mm = s[:-2], s[-2:]
+    elif s.isdigit():  # bare hour, e.g. "23" or "11pm" → "11"
+        hh, mm = s, "00"
+    else:
+        return None
+
+    if not (hh.isdigit() and mm.isdigit()):
+        return None
+    h, m = int(hh), int(mm)
+    if ampm == "pm" and h < 12:
+        h += 12
+    elif ampm == "am" and h == 12:
+        h = 0
+    if not (0 <= h <= 23 and 0 <= m <= 59):
+        return None
+    return h * 60 + m
+
+
+def plan_result_text(loc_idx: int, station_idx: int, leave_mins: int | None = None) -> str:
     name, walk = CAMPUS_LOCATIONS[loc_idx]
     station = PLAN_STATIONS[station_idx]
     now = datetime.datetime.now(SGT)
-    now_mins = now.hour * 60 + now.minute
+
+    # Anchor the verdict to the planned departure if given, else to now.
+    if leave_mins is None:
+        ref_mins = now.hour * 60 + now.minute
+        when_label = f"🕐 Leaving now ({now.strftime('%H:%M')})"
+    else:
+        ref_mins = leave_mins
+        when_label = f"🕐 Leaving {_fmt_mins(leave_mins)}"
 
     lines = [
         "🗺️ *Plan My Trip*",
         f"📍 From *{name}* (~{walk} min walk)",
         f"🚉 To *{station['name']}*",
-        f"🕐 Now {now.strftime('%H:%M')} · +{SAFETY_MINS} min safety\n",
+        f"{when_label} · +{SAFETY_MINS} min safety\n",
     ]
     for label, trains in station["groups"]:
         lines.append(f"_{label}_")
         for direction, last in trains:
             last_m = _to_mins(last)
             # Last trains run past midnight; treat an already-passed time as tomorrow.
-            if last_m < now_mins - 90:
+            if last_m < ref_mins - 90:
                 last_m += 1440
             leave_by = last_m - walk - SAFETY_MINS
-            if now_mins <= leave_by:
-                buf = leave_by - now_mins
+            if ref_mins <= leave_by:
+                buf = leave_by - ref_mins
                 buf_str = f"{buf // 60}h {buf % 60}m" if buf >= 60 else f"{buf}m"
                 lines.append(
                     f"  ✅ {direction} (last {last})\n"
@@ -242,7 +328,7 @@ def route_plan(data: str):
         return text, plan_station_keyboard(loc_idx)
     if len(parts) == 4 and parts[1] == "res":
         loc_idx, station_idx = int(parts[2]), int(parts[3])
-        return plan_result_text(loc_idx, station_idx), plan_result_keyboard(loc_idx)
+        return plan_result_text(loc_idx, station_idx), plan_result_keyboard(loc_idx, station_idx)
     return None, None
 
 

@@ -118,6 +118,7 @@ async def on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if data in SUBMENUS:
         context.user_data.pop("dl_flow", None)
         context.user_data.pop("fac_flow", None)
+        context.user_data.pop("plan_flow", None)
         text, keyboard = SUBMENUS[data]
         await _safe_edit(query, text, keyboard())
         return
@@ -134,6 +135,11 @@ async def on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 def _route_action(data: str, chat_id, context):
     """Return (text_or_coro, keyboard) for a feature action callback."""
+    # Any tap other than "enter a leave time" cancels a pending time prompt, so
+    # a later free-text message isn't mistaken for a time.
+    if not data.startswith("plan:time:"):
+        context.user_data.pop("plan_flow", None)
+
     # ── Gym ──
     if data == "gym:status":
         return gym.status_text(), kb.gym_menu()
@@ -180,6 +186,14 @@ def _route_action(data: str, chat_id, context):
         return last_train.buses_text, kb.train_menu()  # coroutine factory
     if data == "train:plan":
         return last_train.PLAN_INTRO, last_train.plan_location_keyboard()
+    if data.startswith("plan:time:"):  # ask for a typed departure time
+        _, _, loc, st = data.split(":")
+        loc_idx, station_idx = int(loc), int(st)
+        context.user_data["plan_flow"] = {"loc": loc_idx, "st": station_idx}
+        return (
+            last_train.plan_time_prompt(loc_idx, station_idx),
+            last_train.plan_time_keyboard(loc_idx, station_idx),
+        )
     if data.startswith("plan:"):  # multi-step trip planner (state in callback data)
         return last_train.route_plan(data)
 
@@ -220,6 +234,27 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             facilities.room_text(text),
             parse_mode=ParseMode.MARKDOWN,
             reply_markup=kb.facilities_menu(),
+        )
+        return
+
+    # Trip-planner flow: the next message is the time the user plans to leave.
+    plan_flow = context.user_data.get("plan_flow")
+    if plan_flow is not None:
+        leave_mins = last_train.parse_leave_time(text)
+        if leave_mins is None:
+            await update.message.reply_text(
+                "🕐 I couldn't read that time. Try `23:10`, `11pm`, or `2305` "
+                "(or tap *Use now instead*).",
+                parse_mode=ParseMode.MARKDOWN,
+            )
+            return  # keep the flow open so they can retry
+        context.user_data.pop("plan_flow", None)
+        await update.message.reply_text(
+            last_train.plan_result_text(plan_flow["loc"], plan_flow["st"], leave_mins),
+            parse_mode=ParseMode.MARKDOWN,
+            reply_markup=last_train.plan_result_keyboard(
+                plan_flow["loc"], plan_flow["st"], leave_set=True
+            ),
         )
         return
 

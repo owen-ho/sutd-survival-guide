@@ -20,7 +20,8 @@ callback data itself (keyboards built in features/last_train.py):
 
     train:plan                  -> pick campus location
     plan:loc:<loc_idx>          -> pick station
-    plan:res:<loc_idx>:<st_idx> -> show "can I catch it?" verdict
+    plan:res:<loc_idx>:<st_idx> -> show "can I catch it?" verdict (anchored to now)
+    plan:time:<loc_idx>:<st_idx>-> prompt for a leave time; the typed reply recomputes
 """
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
