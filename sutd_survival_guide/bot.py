@@ -114,9 +114,10 @@ async def on_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     data = query.data
     chat_id = update.effective_chat.id
 
-    # Navigation between menus cancels any half-finished deadline add flow.
+    # Navigation between menus cancels any half-finished add/lookup flow.
     if data in SUBMENUS:
         context.user_data.pop("dl_flow", None)
+        context.user_data.pop("fac_flow", None)
         text, keyboard = SUBMENUS[data]
         await _safe_edit(query, text, keyboard())
         return
@@ -187,6 +188,9 @@ def _route_action(data: str, chat_id, context):
         return facilities.links_text(), kb.facilities_menu()
     if data == "fac:library":
         return facilities.library_dr_text, kb.facilities_menu()  # coroutine factory
+    if data == "fac:room":
+        context.user_data["fac_flow"] = {"kind": "room"}
+        return facilities.ROOM_PROMPT, kb.facilities_menu()
 
     logger.warning("Unhandled callback: %s", data)
     return None, None
@@ -208,6 +212,15 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     text = (update.message.text or "").strip()
     if not text:
+        return
+
+    # Room-finder flow: the next message is a room name/code to look up (no AI).
+    if context.user_data.pop("fac_flow", None):
+        await update.message.reply_text(
+            facilities.room_text(text),
+            parse_mode=ParseMode.MARKDOWN,
+            reply_markup=kb.facilities_menu(),
+        )
         return
 
     if not ai.is_configured():
@@ -273,6 +286,9 @@ async def _dispatch_route(decision, update: Update):
     if feature == "facilities":
         if intent == "library":
             return await facilities.library_dr_text(), kb.facilities_menu()
+        if intent == "room":
+            # Look the room up in the user's own words (e.g. "where's TT6?").
+            return facilities.room_text(update.message.text or ""), kb.facilities_menu()
         return facilities.links_text(), kb.facilities_menu()
 
     # feature == "none": use Agnes's own one-liner, falling back to the hint.

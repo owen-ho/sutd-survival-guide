@@ -13,7 +13,7 @@ can route taps to the right feature:
     dl:list | dl:upcoming | dl:stats | dl:modules
     dl:add_module | dl:join | dl:add_exam | dl:add_hw | dl:remind | dl:pick:* | dl:cancel
     train:trains | train:buses | train:plan
-    fac:links | fac:library
+    fac:links | fac:library | fac:room
 
 The trip planner is a stateless multi-step flow whose selections live in the
 callback data itself (keyboards built in features/last_train.py):
@@ -100,6 +100,7 @@ def facilities_menu() -> InlineKeyboardMarkup:
         [
             [InlineKeyboardButton("🔗 All booking links", callback_data="fac:links")],
             [InlineKeyboardButton("📚 Library rooms", callback_data="fac:library")],
+            [InlineKeyboardButton("📍 Find a room", callback_data="fac:room")],
             _back(),
         ]
     )

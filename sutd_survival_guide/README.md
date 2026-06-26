@@ -8,7 +8,7 @@ inline-button menu:
 | 🏋️ Gym Crowd Tracker | `aloysius_gym_crowd_tracker/` | Status / Recent / Popular wired (reuses `GymTracker`). Sim entry/exit + reset routed (sim via command for now). |
 | 📅 Deadline Notifier | `dylan_deadline_notifier/` | List / Upcoming / Modules / Stats + add module/exam/homework — slash commands **and** guided button flow, natural-language due dates via Agnes AI. **Shared modules** on SQLite: join a module to share its deadlines. |
 | 🚆 Last Train Home | `gabriel_sutd_last_train_home.html` | Static last-train times + live buses (arrivelah) wired. Trip planner stubbed. |
-| 🏛️ Facilities & Bookings | `facilities.md` | One-tap booking links (Housing/StarRez, Jam Room, Library, Fab Lab) + **live earliest availability** for the 4 library discussion rooms, scraped from the public availability grid. |
+| 🏛️ Facilities & Bookings | `facilities.md` | One-tap booking links (Housing/StarRez, Jam Room, Library, Fab Lab) + **live earliest availability** for the 4 library discussion rooms, scraped from the public availability grid. **📍 Find a room**: name/code → building & level (e.g. "Think Tank 6" → `1.408`, Building 1 Level 4). |
 
 ## Agnes AI is the core: just type what you need
 

@@ -151,7 +151,7 @@ _ROUTES: dict[str, list[str]] = {
     "gym": ["status", "recent", "popular"],
     "deadlines": ["list", "upcoming", "modules", "stats", "add"],
     "train": ["trains", "buses"],
-    "facilities": ["links", "library"],
+    "facilities": ["links", "library", "room"],
 }
 
 _ROUTER_SYSTEM = (
@@ -166,7 +166,9 @@ _ROUTER_SYSTEM = (
     "add (create or add an exam, homework, assignment or project)\n"
     "- train: trains (last MRT train times home), buses (live bus arrivals)\n"
     "- facilities: links (booking portals / links for rooms, jam room, fab "
-    "lab), library (free library discussion rooms right now)\n"
+    "lab), library (free library discussion rooms right now), room (WHERE a "
+    "room is — its building & level; e.g. “where is Think Tank 6”, “which "
+    "floor is LT3”, “1.408”)\n"
     "- none: anything else — greeting, thanks, unrelated, or asking what you "
     "can do.\n"
     "Rules: pick the single best match. Use feature 'none' only when no tool "

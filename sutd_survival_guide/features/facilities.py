@@ -56,6 +56,149 @@ RESOURCES = [
 ]
 
 
+# ── Room directory (name ⇄ code lookup) ───────────────────────────────
+# SUTD room codes read "building.floor + room" — e.g. 1.408 = Building 1,
+# Level 4, room 08. Kept as an ordered list (not a dict) because the source has
+# genuine duplicate codes (1.313 is both Think Tank 5 and Cohort Class 1; the
+# lecture theatres carry an LT* alias alongside their numeric code).
+ROOM_LIST: list[tuple[str, str]] = [
+    ("1.308", "Think Tank 1"), ("1.309", "Think Tank 2"), ("1.310", "Think Tank 3"),
+    ("1.312", "Think Tank 4"), ("1.313", "Think Tank 5"), ("1.408", "Think Tank 6"),
+    ("1.409", "Think Tank 7"), ("1.410", "Think Tank 8"), ("1.415", "Think Tank 9"),
+    ("1.416", "Think Tank 10"), ("1.503", "Think Tank 11"), ("1.506", "Think Tank 12"),
+    ("1.508", "Think Tank 13"), ("1.509", "Think Tank 14"), ("1.510", "Think Tank 15"),
+    ("2.201", "Think Tank 16"), ("2.202", "Think Tank 17"), ("2.203", "Think Tank 18"),
+    ("2.304", "Think Tank 19"), ("2.305", "Think Tank 20"), ("2.310", "Think Tank 21"),
+    ("2.311", "Think Tank 22"), ("2.413", "Think Tank 23"), ("2.503", "Think Tank 24"),
+    ("2.504", "Think Tank 25"), ("2.514", "Think Tank 26"), ("1.603", "Think Tank 27 & 28"),
+    ("1.313", "Cohort Class 1"), ("1.314", "Cohort Class 2"), ("1.413", "Cohort Class 3"),
+    ("1.414", "Cohort Class 4"), ("1.513", "Cohort Class 5"), ("1.514", "Cohort Class 6"),
+    ("1.608", "Cohort Class 7"), ("1.609", "Cohort Class 8"), ("2.307", "Cohort Class 9"),
+    ("2.308", "Cohort Class 10"), ("2.405", "Cohort Class 11"), ("2.406", "Cohort Class 12"),
+    ("2.506", "Cohort Class 13"), ("2.507", "Cohort Class 14"), ("2.606", "Cohort Class 15"),
+    ("2.607", "Cohort Class 16"), ("2.101", "Auditorium"),
+    ("LT1", "Albert Hong Lecture Theatre 1"), ("1.102", "Albert Hong Lecture Theatre 1"),
+    ("1.203", "Lecture Theatre 2"), ("2.403", "Lecture Theatre 3"),
+    ("2.404", "Lecture Theatre 4"), ("2.505", "Lecture Theatre 5"),
+]
+
+# Abbreviation expansions so "tt6", "lt3", "cc9" resolve like the full names.
+_ABBR = (
+    (re.compile(r"\btt\s*(\d+)", re.I), r"think tank \1"),
+    (re.compile(r"\blt\s*(\d+)", re.I), r"lecture theatre \1"),
+    (re.compile(r"\bcc\s*(\d+)", re.I), r"cohort class \1"),
+)
+
+
+def _norm(s: str) -> str:
+    # Drop punctuation (so "think tank 6?" tokenizes cleanly) but keep "." for
+    # codes like 1.408 and "&" for "Think Tank 27 & 28".
+    s = re.sub(r"[^a-z0-9.& ]+", " ", s.lower())
+    return re.sub(r"\s+", " ", s).strip()
+
+
+def _expand(s: str) -> str:
+    for pat, repl in _ABBR:
+        s = pat.sub(repl, s)
+    return _norm(s)
+
+
+def _seq_in(needle: list[str], hay: list[str]) -> bool:
+    """True if ``needle`` appears as a consecutive run inside ``hay``.
+
+    Token-level (not substring) so "think tank 6" matches "Think Tank 6" but
+    never "Think Tank 16" — the numbers are distinct tokens.
+    """
+    if not needle or len(needle) > len(hay):
+        return False
+    return any(hay[i : i + len(needle)] == needle for i in range(len(hay) - len(needle) + 1))
+
+
+def _describe(code: str) -> str | None:
+    """A numeric code "a.xbb" → "Building a, Level x". None for LT* aliases."""
+    m = re.match(r"^(\d+)\.(\d)(\d{2})$", code)
+    if not m:
+        return None
+    building, floor, _room = m.groups()
+    return f"Building {building}, Level {floor}"
+
+
+def _location(code: str, name: str) -> str | None:
+    """Where a result is. Falls back to another code for the same room name
+    (so the LT* alias still resolves via its numeric twin, e.g. LT1 → 1.102)."""
+    loc = _describe(code)
+    if loc:
+        return loc
+    for c, n in ROOM_LIST:
+        if n == name and _describe(c):
+            return _describe(c)
+    return None
+
+
+def find_rooms(query: str) -> list[tuple[str, str]]:
+    """Resolve free text to matching ``(code, name)`` rooms.
+
+    Order of attack: exact room code → room name appearing as a run inside the
+    query (handles "where is think tank 6?") → broad "all words present" so a
+    bare "think tank" lists the options.
+    """
+    raw = _norm(query)
+    if not raw:
+        return []
+
+    # A room code, whether the whole query ("1.408") or buried in free text
+    # ("where is 1.408?"), wins outright.
+    q = _expand(raw).split()
+    code_hits = [(c, n) for c, n in ROOM_LIST if c.lower() == raw or c.lower() in q]
+    if code_hits:
+        return code_hits
+
+    strong = [(c, n) for c, n in ROOM_LIST if _seq_in(n.lower().split(), q)]
+    pairs = strong or [
+        (c, n) for c, n in ROOM_LIST if all(t in n.lower().split() for t in q)
+    ]
+
+    seen, out = set(), []  # one line per room name (collapses LT alias duplicates)
+    for c, n in pairs:
+        if n in seen:
+            continue
+        seen.add(n)
+        out.append((c, n))
+    return out
+
+
+def room_text(query: str) -> str:
+    """Markdown answer for the room finder (button flow + Agnes routing)."""
+    results = find_rooms(query)
+    asked = query.strip()
+    if not results:
+        return (
+            "🔍 *Room finder*\n\n"
+            f"I couldn't find a room matching “{asked}”.\n"
+            "Try a name like *Think Tank 6*, a code like *1.408*, or *LT3*."
+        )
+    if len(results) > 8:
+        return (
+            f"🔍 *Room finder*\n\n{len(results)} rooms match “{asked}”. "
+            "Be more specific — add the number, e.g. *Think Tank 6*."
+        )
+    lines = ["📍 *Room finder*\n"]
+    for code, name in results:
+        loc = _location(code, name)
+        lines.append(f"*{name}* — `{code}`" + (f"\n   {loc}" if loc else ""))
+    lines.append(
+        "\n_SUTD codes read building.floor+room — e.g. `1.408` = Building 1, Level 4._"
+    )
+    return "\n".join(lines)
+
+
+ROOM_PROMPT = (
+    "📍 *Find a room*\n\n"
+    "Send me a room name or code and I'll tell you the building & level — "
+    "e.g. “Think Tank 6”, “LT3”, or “1.408”."
+)
+
+
 def links_text() -> str:
     lines = ["🏛️ *SUTD Facility Bookings*\n", "Tap a portal to book:\n"]
     for emoji, name, what, url in RESOURCES:
