@@ -23,6 +23,11 @@ AGNES_AI_TOKEN = os.getenv("AGNES_AI_TOKEN", "")
 AGNES_AI_BASE_URL = os.getenv("AGNES_AI_BASE_URL", "https://apihub.agnes-ai.com/v1")
 AGNES_AI_MODEL = os.getenv("AGNES_AI_MODEL", "agnes-2.0-flash")
 
+# Blended price per 1M tokens, used only to show a running cost estimate in the
+# /agnes usage panel (the "cheap" half of the pitch). Override to match the
+# model's real rate; the default is deliberately conservative.
+AGNES_AI_PRICE_PER_1M = float(os.getenv("AGNES_AI_PRICE_PER_1M", "0.20"))
+
 # ── Data files reused from the original apps ──────────────────────────
 # Paths are overridable via env so they can point at a mounted Docker volume
 # (e.g. DEADLINE_DB_FILE=/data/deadlines.db) and survive container restarts.

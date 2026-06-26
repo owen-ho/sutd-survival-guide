@@ -10,6 +10,31 @@ inline-button menu:
 | 🚆 Last Train Home | `gabriel_sutd_last_train_home.html` | Static last-train times + live buses (arrivelah) wired. Trip planner stubbed. |
 | 🏛️ Facilities & Bookings | `facilities.md` | One-tap booking links (Housing/StarRez, Jam Room, Library, Fab Lab) + **live earliest availability** for the 4 library discussion rooms, scraped from the public availability grid. |
 
+## Agnes AI is the core: just type what you need
+
+The headline interaction isn't the menu — it's plain English. **Every** free-text
+message you send goes through one Agnes AI call (`ai.route()`) that classifies it
+into a feature + intent, and the bot renders the same view a button would:
+
+| You type… | Agnes routes to |
+|-----------|-----------------|
+| "how busy is the gym?" | 🏋️ Gym status |
+| "what's due this week?" | 📅 Upcoming deadlines |
+| "when's the last train home?" | 🚆 Last trains |
+| "any free library rooms?" | 🏛️ Live discussion-room availability |
+| "what can you do?" | a one-line natural answer from Agnes |
+
+This is the architecture that **cheap + fast** unlocks: an LLM call on the hot
+path of *every* message. A frontier model would be too slow/expensive to sit
+there, forcing you back to menus — Agnes makes the conversational front door
+economical. The buttons remain as a deterministic fallback (and for the
+multi-step add/plan flows), so with the token unset the bot still works; it just
+drops back to "tap, don't type".
+
+**`/agnes`** shows the proof live: total calls, average latency, tokens, and an
+estimated cost (priced via `AGNES_AI_PRICE_PER_1M`). Routing, natural-language
+due dates, and reminder parsing are all counted, by task.
+
 ## How navigation works
 
 `/start` (or `/menu`) shows a main hub. Tapping a feature opens its submenu;
@@ -25,7 +50,8 @@ db.py             # SQLite data layer for deadlines (shared modules)
 features/
   gym.py          # wraps Aloysius' GymTracker
   deadlines.py    # deadlines feature on top of db.py (add/join flows)
-  ai.py           # OpenAI-compatible client (Agnes AI) for free-text dates
+  ai.py           # Agnes AI client: route() brain + free-text date/offset parsing
+  metrics.py      # live Agnes AI usage (calls / latency / cost) for /agnes
   last_train.py   # Gabriel's train data + live bus fetch
   facilities.py   # booking links + live library DR availability scraper
 ```

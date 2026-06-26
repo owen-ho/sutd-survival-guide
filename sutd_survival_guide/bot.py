@@ -27,7 +27,7 @@ from telegram.ext import (
 import db
 import keyboards as kb
 from settings import BOT_TOKEN
-from features import deadlines, facilities, gym, last_train
+from features import ai, deadlines, facilities, gym, last_train, metrics
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
@@ -41,7 +41,20 @@ WELCOME = (
     "📅 *Deadlines* — track exams & homework\n"
     "🚆 *Last Train Home* — trains, buses & trip planner\n"
     "🏛️ *Facilities* — booking links & live library rooms\n\n"
-    "Tap a button below, or use /menu anytime."
+    "💬 *Just type what you need* — Agnes AI figures out the rest "
+    "(e.g. “how busy is the gym?”, “what's due this week?”, "
+    "“last train home?”). Or tap a button below / use /menu anytime.\n"
+    "_See /agnes for live AI usage._"
+)
+
+# Shown when free text can't be routed (or Agnes is off): nudge toward examples.
+ROUTE_HELP = (
+    "🤖 I didn't quite catch that. Try asking me things like:\n"
+    "• “how busy is the gym?”\n"
+    "• “what's due this week?”\n"
+    "• “when's the last train home?”\n"
+    "• “any free library rooms?”\n\n"
+    "Or use /menu for buttons."
 )
 
 
@@ -179,6 +192,98 @@ def _route_action(data: str, chat_id, context):
     return None, None
 
 
+# ── Natural-language front door (Agnes AI is the core) ─────────────────
+async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Every free-text message: continue an active flow, else let Agnes route it.
+
+    The router turns plain English ("how busy is the gym?", "what's due this
+    week?") into a feature + intent, then we render the same views the buttons
+    do. One Agnes call per message — cheap and fast enough to sit on the hot
+    path. With Agnes off we degrade to a hint pointing at the button menu.
+    """
+    # A half-finished guided flow (add/join/remind) owns the next message.
+    if context.user_data.get("dl_flow"):
+        await deadlines.handle_text(update, context)
+        return
+
+    text = (update.message.text or "").strip()
+    if not text:
+        return
+
+    if not ai.is_configured():
+        await update.message.reply_text(
+            "🤖 Natural-language mode needs Agnes AI (set `AGNES_AI_TOKEN`). "
+            "Use /menu for buttons in the meantime.",
+            parse_mode=ParseMode.MARKDOWN,
+            reply_markup=kb.main_menu(),
+        )
+        return
+
+    thinking = await update.message.reply_text("🤖 …")
+    decision = await ai.route(text)
+    reply_text, keyboard = await _dispatch_route(decision, update)
+    try:
+        await thinking.edit_text(
+            reply_text, parse_mode=ParseMode.MARKDOWN, reply_markup=keyboard
+        )
+    except BadRequest as exc:
+        msg = str(exc).lower()
+        if "parse" in msg or "entities" in msg:
+            await thinking.edit_text(reply_text, reply_markup=keyboard)
+        elif "not modified" not in msg:
+            raise
+
+
+async def _dispatch_route(decision, update: Update):
+    """Map a router decision to (text, keyboard), matching the button views."""
+    if decision is None:  # Agnes unreachable / unparseable
+        return ROUTE_HELP, kb.main_menu()
+
+    chat_id = update.effective_chat.id
+    feature, intent, reply = decision["feature"], decision["intent"], decision["reply"]
+
+    if feature == "gym":
+        if intent == "recent":
+            return gym.recent_text(), kb.gym_menu()
+        if intent == "popular":
+            return gym.POPULAR_TEXT, kb.gym_menu()
+        return gym.status_text(), kb.gym_menu()
+
+    if feature == "deadlines":
+        if intent == "upcoming":
+            return deadlines.upcoming_text(chat_id), kb.deadlines_menu()
+        if intent == "modules":
+            return deadlines.modules_text(chat_id), kb.deadlines_menu()
+        if intent == "stats":
+            return deadlines.stats_text(chat_id), kb.deadlines_menu()
+        if intent == "add":
+            return (
+                "➕ Let's add it. Tap *Add exam* or *Add homework* below — I'll "
+                "ask for the module, the title, and when it's due (you can type "
+                "the date naturally, e.g. “next Fri 2pm”).",
+                kb.deadlines_menu(),
+            )
+        return deadlines.list_text(chat_id), kb.deadlines_menu()
+
+    if feature == "train":
+        if intent == "buses":
+            return await last_train.buses_text(), kb.train_menu()
+        return last_train.trains_text(), kb.train_menu()
+
+    if feature == "facilities":
+        if intent == "library":
+            return await facilities.library_dr_text(), kb.facilities_menu()
+        return facilities.links_text(), kb.facilities_menu()
+
+    # feature == "none": use Agnes's own one-liner, falling back to the hint.
+    return (reply or ROUTE_HELP), kb.main_menu()
+
+
+async def cmd_agnes(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Show the live Agnes AI usage panel (calls / latency / cost)."""
+    await update.message.reply_text(metrics.summary_text(), parse_mode=ParseMode.MARKDOWN)
+
+
 async def on_error(update: object, context: ContextTypes.DEFAULT_TYPE):
     """Async error handler (PTB awaits this — a sync lambda would crash).
 
@@ -214,6 +319,7 @@ def main():
 
     # Hub
     app.add_handler(CommandHandler(["start", "menu"], start))
+    app.add_handler(CommandHandler("agnes", cmd_agnes))  # live AI usage panel
 
     # Keep the original commands working alongside the buttons.
     app.add_handler(CommandHandler("status", gym.cmd_status))
@@ -229,10 +335,9 @@ def main():
     app.add_handler(CommandHandler("add_hw", deadlines.cmd_add_hw))
     app.add_handler(CommandHandler("remind", deadlines.cmd_remind))
 
-    # Free-text steps of the guided add flow (no-op unless a flow is active).
-    app.add_handler(
-        MessageHandler(filters.TEXT & ~filters.COMMAND, deadlines.handle_text)
-    )
+    # Free text: continues an active add/join/remind flow, otherwise Agnes AI
+    # routes the message to the right feature (the natural-language front door).
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, on_text))
 
     # One dispatcher for every inline button.
     app.add_handler(CallbackQueryHandler(on_callback))

@@ -1,20 +1,25 @@
 """Minimal OpenAI-compatible client for natural-language parsing.
 
 Talks to Agnes AI's ``/chat/completions`` endpoint (configurable in settings)
-with a raw httpx call — no SDK needed. Two jobs:
+with a raw httpx call — no SDK needed. Three jobs:
+  • route                  — free-text message → which tool + intent (the brain).
   • parse_datetime         — free-text due date → a timestamp.
   • parse_reminder_offsets — free-text reminder pref → lead times in minutes.
 
-Everything degrades gracefully: if the token is unset or the call fails/returns
-junk, callers get ``None`` and fall back to strict parsing.
+Every call is timed and counted in ``features.metrics`` so ``/agnes`` can show
+the "cheap + fast" story live. Everything still degrades gracefully: if the
+token is unset or the call fails/returns junk, callers get ``None`` and fall
+back to buttons / strict parsing.
 """
 
 import datetime
 import json
 import logging
+import time
 
 import httpx
 
+from features import metrics
 from settings import AGNES_AI_BASE_URL, AGNES_AI_MODEL, AGNES_AI_TOKEN
 
 logger = logging.getLogger(__name__)
@@ -31,8 +36,12 @@ def is_configured() -> bool:
     return bool(AGNES_AI_TOKEN) and AGNES_AI_TOKEN != _PLACEHOLDER
 
 
-async def _complete(system: str, user: str) -> str | None:
-    """Single-turn chat completion. Returns the message content, or None."""
+async def _complete(system: str, user: str, *, task: str = "chat") -> str | None:
+    """Single-turn chat completion. Returns the message content, or None.
+
+    Records latency + token usage in ``features.metrics`` under ``task`` so the
+    /agnes panel can report calls/cost/latency live.
+    """
     if not is_configured() or not user.strip():
         return None
     payload = {
@@ -43,6 +52,7 @@ async def _complete(system: str, user: str) -> str | None:
             {"role": "user", "content": user.strip()},
         ],
     }
+    start = time.perf_counter()
     try:
         async with httpx.AsyncClient(timeout=20) as client:
             resp = await client.post(
@@ -51,8 +61,11 @@ async def _complete(system: str, user: str) -> str | None:
                 json=payload,
             )
             resp.raise_for_status()
-            return resp.json()["choices"][0]["message"]["content"].strip()
+            data = resp.json()
+        metrics.record(task, (time.perf_counter() - start) * 1000, data.get("usage"))
+        return data["choices"][0]["message"]["content"].strip()
     except Exception as exc:  # network, auth, schema — all non-fatal here
+        metrics.record(task, (time.perf_counter() - start) * 1000, None, ok=False)
         logger.warning("Agnes AI call failed: %r", exc)
         return None
 
@@ -69,7 +82,7 @@ async def parse_datetime(text: str, now: datetime.datetime) -> datetime.datetime
         "in the exact format YYYY-MM-DD HH:MM (24-hour, zero-padded). If the "
         "text is not a date/time at all, reply with exactly: NONE"
     )
-    content = await _complete(system, text)
+    content = await _complete(system, text, task="parse_date")
     if content is None or content.upper().startswith("NONE"):
         return None
     # Be lenient about wrapping (code fences, a leading line of prose, etc.).
@@ -104,7 +117,7 @@ async def parse_reminder_offsets(text: str) -> list[int] | None:
         "More: 'a day before' -> [1440]; '30 mins before' -> [30]; '2 hours "
         "before' -> [120]. If you can't interpret it, reply with exactly: NONE"
     )
-    content = await _complete(system, text)
+    content = await _complete(system, text, task="parse_offsets")
     if content is None or content.upper().startswith("NONE"):
         return None
 
@@ -128,3 +141,67 @@ async def parse_reminder_offsets(text: str) -> list[int] | None:
         reverse=True,
     )
     return cleaned or None
+
+
+# ── Routing brain ──────────────────────────────────────────────────────
+# Controlled feature → intent vocabulary. The bot's dispatcher (bot._dispatch_
+# route) must handle every (feature, intent) pair here. The first intent in each
+# list is the safe default if the model returns an unknown one for that feature.
+_ROUTES: dict[str, list[str]] = {
+    "gym": ["status", "recent", "popular"],
+    "deadlines": ["list", "upcoming", "modules", "stats", "add"],
+    "train": ["trains", "buses"],
+    "facilities": ["links", "library"],
+}
+
+_ROUTER_SYSTEM = (
+    "You are the router for a SUTD student-helper Telegram bot with four tools. "
+    "Classify the user's message into exactly one tool + intent and reply with "
+    'ONLY a JSON object: {"feature": ..., "intent": ..., "reply": ...}.\n'
+    "Tools and their intents:\n"
+    "- gym: status (how busy / current occupancy), recent (recent entries/"
+    "exits), popular (best or quiet times to go)\n"
+    "- deadlines: list (all pending), upcoming (due soon / this week), modules "
+    "(which modules I'm in / share codes), stats (progress / completion rate), "
+    "add (create or add an exam, homework, assignment or project)\n"
+    "- train: trains (last MRT train times home), buses (live bus arrivals)\n"
+    "- facilities: links (booking portals / links for rooms, jam room, fab "
+    "lab), library (free library discussion rooms right now)\n"
+    "- none: anything else — greeting, thanks, unrelated, or asking what you "
+    "can do.\n"
+    "Rules: pick the single best match. Use feature 'none' only when no tool "
+    'fits. Set "reply" to "" UNLESS feature is "none", in which case put a '
+    "short, friendly one-sentence answer (if they ask what you can do, mention "
+    "the four tools: gym crowd, deadlines, last train home, facilities). "
+    "Output JSON only — no prose, no code fences."
+)
+
+
+async def route(text: str) -> dict | None:
+    """Classify a free-text message → ``{"feature", "intent", "reply"}``.
+
+    ``feature`` is one of ``_ROUTES`` keys or ``"none"`` (not a tool request —
+    ``reply`` then carries a short natural answer). Returns ``None`` when Agnes
+    is off / unreachable / unparseable, so the caller can fall back to buttons.
+    """
+    content = await _complete(_ROUTER_SYSTEM, text, task="route")
+    if content is None:
+        return None
+    start, end = content.find("{"), content.rfind("}")
+    if start == -1 or end == -1 or end < start:
+        logger.warning("Agnes AI route returned no JSON: %r", content)
+        return None
+    try:
+        obj = json.loads(content[start : end + 1])
+    except Exception:
+        logger.warning("Agnes AI route unparseable: %r", content)
+        return None
+
+    feature = str(obj.get("feature", "none")).lower().strip()
+    intent = str(obj.get("intent", "")).lower().strip()
+    reply = str(obj.get("reply", "")).strip()
+    if feature not in _ROUTES:
+        feature = "none"
+    elif intent not in _ROUTES[feature]:
+        intent = _ROUTES[feature][0]  # safe default for that tool
+    return {"feature": feature, "intent": intent, "reply": reply}
