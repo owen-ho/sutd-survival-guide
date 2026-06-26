@@ -1,6 +1,6 @@
 # 🎓 SUTD Survival Guide — Unified Telegram Bot
 
-One bot that routes to three tools built by the cohort, behind a single
+One bot that routes to four tools built by the cohort, behind a single
 inline-button menu:
 
 | Feature | Origin | Status this pass |
@@ -8,6 +8,7 @@ inline-button menu:
 | 🏋️ Gym Crowd Tracker | `aloysius_gym_crowd_tracker/` | Status / Recent / Popular wired (reuses `GymTracker`). Sim entry/exit + reset routed (sim via command for now). |
 | 📅 Deadline Notifier | `dylan_deadline_notifier/` | List / Upcoming / Modules / Stats + add module/exam/homework — slash commands **and** guided button flow, natural-language due dates via Agnes AI. **Shared modules** on SQLite: join a module to share its deadlines. |
 | 🚆 Last Train Home | `gabriel_sutd_last_train_home.html` | Static last-train times + live buses (arrivelah) wired. Trip planner stubbed. |
+| 🏛️ Facilities & Bookings | `facilities.md` | One-tap booking links (Housing/StarRez, Jam Room, Library, Fab Lab) + **live earliest availability** for the 4 library discussion rooms, scraped from the public availability grid. |
 
 ## How navigation works
 
@@ -26,6 +27,7 @@ features/
   deadlines.py    # deadlines feature on top of db.py (add/join flows)
   ai.py           # OpenAI-compatible client (Agnes AI) for free-text dates
   last_train.py   # Gabriel's train data + live bus fetch
+  facilities.py   # booking links + live library DR availability scraper
 ```
 
 > Note: this package's config is named `settings.py` (not `config.py`) on

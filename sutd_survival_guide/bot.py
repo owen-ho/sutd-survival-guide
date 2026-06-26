@@ -27,7 +27,7 @@ from telegram.ext import (
 import db
 import keyboards as kb
 from settings import BOT_TOKEN
-from features import deadlines, gym, last_train
+from features import deadlines, facilities, gym, last_train
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
@@ -39,7 +39,8 @@ WELCOME = (
     "Your one-stop hub for surviving campus life. Pick a tool:\n\n"
     "🏋️ *Gym Crowd* — check how busy the gym is\n"
     "📅 *Deadlines* — track exams & homework\n"
-    "🚆 *Last Train Home* — trains, buses & trip planner\n\n"
+    "🚆 *Last Train Home* — trains, buses & trip planner\n"
+    "🏛️ *Facilities* — booking links & live library rooms\n\n"
     "Tap a button below, or use /menu anytime."
 )
 
@@ -65,6 +66,7 @@ SUBMENUS = {
     "menu:gym": ("🏋️ *Gym Crowd Tracker*\n\nChoose an action:", kb.gym_menu),
     "menu:deadlines": ("📅 *Deadline Notifier*\n\nChoose an action:", kb.deadlines_menu),
     "menu:train": ("🚆 *Last Train Home*\n\nChoose an action:", kb.train_menu),
+    "menu:facilities": ("🏛️ *Facilities & Bookings*\n\nChoose an action:", kb.facilities_menu),
 }
 
 
@@ -166,6 +168,12 @@ def _route_action(data: str, chat_id, context):
         return last_train.PLAN_INTRO, last_train.plan_location_keyboard()
     if data.startswith("plan:"):  # multi-step trip planner (state in callback data)
         return last_train.route_plan(data)
+
+    # ── Facilities ──
+    if data == "fac:links":
+        return facilities.links_text(), kb.facilities_menu()
+    if data == "fac:library":
+        return facilities.library_dr_text, kb.facilities_menu()  # coroutine factory
 
     logger.warning("Unhandled callback: %s", data)
     return None, None

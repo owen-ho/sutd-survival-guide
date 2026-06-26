@@ -7,11 +7,13 @@ can route taps to the right feature:
     menu:gym       -> gym submenu
     menu:deadlines -> deadlines submenu
     menu:train     -> last-train submenu
+    menu:facilities-> facilities submenu
 
     gym:status | gym:recent | gym:popular | gym:sim_entry | gym:sim_exit | gym:reset
     dl:list | dl:upcoming | dl:stats | dl:modules
     dl:add_module | dl:join | dl:add_exam | dl:add_hw | dl:remind | dl:pick:* | dl:cancel
     train:trains | train:buses | train:plan
+    fac:links | fac:library
 
 The trip planner is a stateless multi-step flow whose selections live in the
 callback data itself (keyboards built in features/last_train.py):
@@ -34,6 +36,7 @@ def main_menu() -> InlineKeyboardMarkup:
             [InlineKeyboardButton("🏋️ Gym Crowd", callback_data="menu:gym")],
             [InlineKeyboardButton("📅 Deadlines", callback_data="menu:deadlines")],
             [InlineKeyboardButton("🚆 Last Train Home", callback_data="menu:train")],
+            [InlineKeyboardButton("🏛️ Facilities", callback_data="menu:facilities")],
         ]
     )
 
@@ -87,6 +90,16 @@ def train_menu() -> InlineKeyboardMarkup:
             [InlineKeyboardButton("🚆 Last trains", callback_data="train:trains")],
             [InlineKeyboardButton("🚌 Live buses", callback_data="train:buses")],
             [InlineKeyboardButton("🗺️ Plan my trip", callback_data="train:plan")],
+            _back(),
+        ]
+    )
+
+
+def facilities_menu() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [InlineKeyboardButton("🔗 All booking links", callback_data="fac:links")],
+            [InlineKeyboardButton("📚 Library rooms", callback_data="fac:library")],
             _back(),
         ]
     )
