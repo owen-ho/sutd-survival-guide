@@ -1,0 +1,21 @@
+# VCS / tooling
+.git
+.gitignore
+.DS_Store
+
+# Python caches & local virtualenvs (each sub-app may have its own)
+**/__pycache__/
+**/*.pyc
+**/venv/
+**/env/
+
+# Secrets & local state — never bake into the image (use env + volume instead)
+**/.env
+**/*.db
+**/*.db-shm
+**/*.db-wal
+
+# Docs / artifacts not needed at runtime
+pitch.html
+*.md
+**/README.md

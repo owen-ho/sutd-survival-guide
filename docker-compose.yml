@@ -1,0 +1,34 @@
+# SUTD Survival Guide — self-host stack.
+#
+#   1. cp .env.example .env   &&   put your BotFather token in .env
+#   2. docker compose up -d --build
+#
+# Services:
+#   bot   — the Telegram bot (long-polling; no inbound ports needed)
+#   pitch — serves pitch.html at http://localhost:8080 (optional demo deck)
+
+services:
+  bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: sutd-survival-guide
+    container_name: sutd-bot
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      # Persist the SQLite deadlines DB + gym counts across rebuilds/restarts.
+      - sutd-data:/data
+
+  pitch:
+    image: nginx:alpine
+    container_name: sutd-pitch
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    volumes:
+      - ./pitch.html:/usr/share/nginx/html/index.html:ro
+
+volumes:
+  sutd-data:

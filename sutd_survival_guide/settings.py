@@ -24,12 +24,18 @@ AGNES_AI_BASE_URL = os.getenv("AGNES_AI_BASE_URL", "https://apihub.agnes-ai.com/
 AGNES_AI_MODEL = os.getenv("AGNES_AI_MODEL", "agnes-2.0-flash")
 
 # ── Data files reused from the original apps ──────────────────────────
-GYM_DATA_FILE = ROOT / "aloysius_gym_crowd_tracker" / "gym_data.json"
+# Paths are overridable via env so they can point at a mounted Docker volume
+# (e.g. DEADLINE_DB_FILE=/data/deadlines.db) and survive container restarts.
+GYM_DATA_FILE = Path(
+    os.getenv("GYM_DATA_FILE", ROOT / "aloysius_gym_crowd_tracker" / "gym_data.json")
+)
 
 # Deadlines now live in SQLite (shared modules + per-user state). The old
 # per-user JSON is the one-time migration source on first run.
 DEADLINE_DATA_FILE = ROOT / "dylan_deadline_notifier" / "bot_data.json"
-DEADLINE_DB_FILE = Path(__file__).resolve().parent / "deadlines.db"
+DEADLINE_DB_FILE = Path(
+    os.getenv("DEADLINE_DB_FILE", Path(__file__).resolve().parent / "deadlines.db")
+)
 
 # Admin chat IDs allowed to run gym staff/admin actions. Empty = allow all
 # (handy for a hackathon demo). Put numeric Telegram chat IDs here to lock down.

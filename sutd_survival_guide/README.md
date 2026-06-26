@@ -78,6 +78,26 @@ cp .env.example .env        # then paste your BotFather token into .env
 python bot.py
 ```
 
+## Self-host with Docker
+
+Files live at the **repo root** (`Dockerfile`, `docker-compose.yml`, `.env.example`)
+because the bot imports the gym tracker from a sibling app, so the build context
+is the whole repo.
+
+```bash
+cd ..                       # repo root
+cp .env.example .env        # paste your BotFather token (+ optional Agnes AI key)
+docker compose up -d --build
+docker compose logs -f bot  # follow the bot
+```
+
+- **`bot`** — long-polling Telegram bot; no inbound ports. Its SQLite DB and gym
+  counts persist in the named volume `sutd-data` (mounted at `/data`, wired via
+  the `DEADLINE_DB_FILE` / `GYM_DATA_FILE` env overrides in `settings.py`).
+- **`pitch`** — serves `pitch.html` at <http://localhost:8080> (the 3-slide deck).
+
+Stop with `docker compose down` (add `-v` to also wipe the data volume).
+
 ## What's intentionally left for the next pass
 
 - Gym **simulate entry/exit** as an in-chat prompt (currently via `/simulate_entry STU001`).
