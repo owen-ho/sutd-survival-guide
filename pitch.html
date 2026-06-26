@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>SUTD Survival Guide — Pitch</title>
+<style>
+  :root {
+    --ink: #0f1220;
+    --paper: #f6f7fb;
+    --accent: #e8443b;   /* SUTD red */
+    --accent2: #2b6cff;
+    --muted: #5b6075;
+    --card: #ffffff;
+    --line: #e6e8f0;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif;
+    background: var(--ink);
+    color: var(--ink);
+    display: flex; align-items: center; justify-content: center;
+    overflow: hidden;
+  }
+
+  .deck { width: min(1100px, 94vw); height: min(680px, 92vh); position: relative; }
+
+  .slide {
+    position: absolute; inset: 0;
+    background: var(--paper);
+    border-radius: 22px;
+    padding: 56px 64px;
+    box-shadow: 0 30px 80px rgba(0,0,0,.45);
+    display: none;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .slide.active { display: flex; animation: pop .35s ease; }
+  @keyframes pop { from { opacity: 0; transform: translateY(10px) scale(.99); } to { opacity: 1; transform: none; } }
+
+  .kicker {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-size: 13px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase;
+    color: var(--accent); margin-bottom: 18px;
+  }
+  .kicker .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--accent); }
+
+  h1 { font-size: 46px; line-height: 1.04; letter-spacing: -.02em; margin-bottom: 10px; }
+  h1 small { display:block; font-size: 18px; font-weight: 600; color: var(--muted); margin-top: 12px; letter-spacing: 0; }
+  .lead { font-size: 19px; color: var(--muted); max-width: 70ch; line-height: 1.5; margin-bottom: 26px; }
+
+  .grid { display: grid; gap: 16px; margin-top: 6px; }
+  .grid.two { grid-template-columns: 1fr 1fr; }
+  .grid.four { grid-template-columns: 1fr 1fr; }
+
+  .card {
+    background: var(--card); border: 1px solid var(--line); border-radius: 16px;
+    padding: 18px 20px;
+  }
+  .card .emoji { font-size: 26px; }
+  .card h3 { font-size: 18px; margin: 8px 0 4px; letter-spacing: -.01em; }
+  .card p { font-size: 14.5px; color: var(--muted); line-height: 1.5; }
+
+  ul.flow { list-style: none; display: flex; flex-direction: column; gap: 14px; margin-top: 4px; }
+  ul.flow li { display: flex; gap: 16px; align-items: flex-start; font-size: 18px; }
+  ul.flow .num {
+    flex: 0 0 34px; height: 34px; border-radius: 50%;
+    background: var(--accent2); color: #fff; font-weight: 800;
+    display: flex; align-items: center; justify-content: center; font-size: 16px;
+  }
+  ul.flow b { font-weight: 700; }
+  ul.flow span.sub { display:block; font-size: 14.5px; color: var(--muted); margin-top: 2px; }
+
+  .stack { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 8px; }
+  .pill {
+    background: var(--card); border: 1px solid var(--line); border-radius: 14px;
+    padding: 14px 16px; font-size: 15px;
+  }
+  .pill b { display:block; font-size: 13px; text-transform: uppercase; letter-spacing: .08em; color: var(--accent); margin-bottom: 4px; }
+  .pill span { color: var(--muted); }
+
+  .footer {
+    margin-top: auto; padding-top: 22px; display: flex; align-items: center; justify-content: space-between;
+    font-size: 13px; color: var(--muted); border-top: 1px solid var(--line);
+  }
+  .footer .brand { font-weight: 800; color: var(--ink); letter-spacing: -.01em; }
+
+  /* nav */
+  .nav {
+    position: absolute; bottom: 22px; left: 50%; transform: translateX(-50%);
+    display: flex; gap: 10px; align-items: center; z-index: 5;
+  }
+  .nav button {
+    border: none; width: 40px; height: 40px; border-radius: 50%;
+    background: rgba(255,255,255,.12); color: #fff; font-size: 18px; cursor: pointer;
+    transition: background .2s;
+  }
+  .nav button:hover { background: rgba(255,255,255,.25); }
+  .dots { display: flex; gap: 7px; margin: 0 8px; }
+  .dots i { width: 9px; height: 9px; border-radius: 50%; background: rgba(255,255,255,.3); transition: all .2s; }
+  .dots i.on { background: #fff; width: 24px; border-radius: 6px; }
+  .hint { position: absolute; top: 18px; right: 22px; color: rgba(255,255,255,.45); font-size: 12px; z-index: 5; }
+</style>
+</head>
+<body>
+  <div class="hint">← / → to navigate</div>
+  <div class="deck">
+
+    <!-- SLIDE 1 — PROBLEM -->
+    <section class="slide active">
+      <span class="kicker"><span class="dot"></span>The Problem</span>
+      <h1>Surviving SUTD means juggling&nbsp;6 different apps.
+        <small>Every answer a student needs daily lives somewhere else.</small>
+      </h1>
+      <div class="grid four" style="margin-top:18px">
+        <div class="card"><div class="emoji">🏋️</div><h3>"Is the gym packed?"</h3><p>No way to know without walking there.</p></div>
+        <div class="card"><div class="emoji">📅</div><h3>"When's that due?"</h3><p>Deadlines scattered across chats & PDFs.</p></div>
+        <div class="card"><div class="emoji">🚆</div><h3>"Can I still catch the last train?"</h3><p>Timings buried in the LTA app.</p></div>
+        <div class="card"><div class="emoji">🏛️</div><h3>"Any free discussion room?"</h3><p>4 portals, each with its own login.</p></div>
+      </div>
+      <p class="lead" style="margin-top:22px;margin-bottom:0">
+        Four tools, four logins, four tabs — for questions you ask <b>every single day</b>.
+      </p>
+      <div class="footer">
+        <span class="brand">🎓 SUTD Survival Guide</span>
+        <span>One Telegram bot. Every campus question, answered.</span>
+      </div>
+    </section>
+
+    <!-- SLIDE 2 — HOW IT'S USED -->
+    <section class="slide">
+      <span class="kicker"><span class="dot"></span>How It's Used</span>
+      <h1>One chat. Tap a button. Done.</h1>
+      <p class="lead">No app install, no account — just message the bot on Telegram and pick a tool from the menu.</p>
+      <ul class="flow">
+        <li><span class="num">1</span><div><b>/start</b> opens the hub<span class="sub">A single inline-button menu routes to all four tools — and back.</span></div></li>
+        <li><span class="num">2</span><div><b>Tap a tool, get a live answer</b><span class="sub">🏋️ real-time gym occupancy · 🚆 live bus arrivals & "can I make it?" planner · 🏛️ earliest free library discussion rooms + every booking link.</span></div></li>
+        <li><span class="num">3</span><div><b>Talk to it naturally</b><span class="sub">"Maths exam next Friday 2pm" → parsed by Agnes AI. Share a module code so the whole study group gets the same deadlines & reminders.</span></div></li>
+      </ul>
+      <div class="footer">
+        <span class="brand">🎓 SUTD Survival Guide</span>
+        <span>Zero friction — it lives where students already chat.</span>
+      </div>
+    </section>
+
+    <!-- SLIDE 3 — HOW IT'S MADE -->
+    <section class="slide">
+      <span class="kicker"><span class="dot"></span>How It's Made</span>
+      <h1>Four cohort projects, unified behind one bot.</h1>
+      <p class="lead">A single token + dispatcher routes every tap by a <code>namespace:action</code> scheme, so each feature stays its own clean module.</p>
+      <div class="stack">
+        <div class="pill"><b>Core</b><span>Python · <b>python-telegram-bot</b> (async, JobQueue for reminders)</span></div>
+        <div class="pill"><b>Data</b><span><b>SQLite (WAL)</b> — shared modules, per-user reminder state, ACID writes</span></div>
+        <div class="pill"><b>Live data</b><span><b>httpx</b> — arrivelah bus API + scrapes the library's availability grid server-side</span></div>
+        <div class="pill"><b>Intelligence</b><span><b>Agnes AI</b> — natural-language dates & reminder schedules</span></div>
+      </div>
+      <div class="grid two" style="margin-top:16px">
+        <div class="card"><h3>🧩 Modular by design</h3><p>One <code>features/</code> file per tool (gym, deadlines, last_train, facilities). Add a feature = add a module + a menu button.</p></div>
+        <div class="card"><h3>🛡️ Resilient</h3><p>Generous timeouts, graceful Markdown fallback, reminders survive restarts, live fetches fail soft to a link.</p></div>
+      </div>
+      <div class="footer">
+        <span class="brand">🎓 SUTD Survival Guide</span>
+        <span>~1k lines · 4 features · 1 chat window</span>
+      </div>
+    </section>
+
+  </div>
+
+  <div class="nav">
+    <button id="prev" aria-label="Previous">‹</button>
+    <div class="dots"><i class="on"></i><i></i><i></i></div>
+    <button id="next" aria-label="Next">›</button>
+  </div>
+
+<script>
+  const slides = [...document.querySelectorAll('.slide')];
+  const dots = [...document.querySelectorAll('.dots i')];
+  let i = 0;
+  function show(n) {
+    i = (n + slides.length) % slides.length;
+    slides.forEach((s, k) => s.classList.toggle('active', k === i));
+    dots.forEach((d, k) => d.classList.toggle('on', k === i));
+  }
+  document.getElementById('next').onclick = () => show(i + 1);
+  document.getElementById('prev').onclick = () => show(i - 1);
+  document.addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight' || e.key === ' ') show(i + 1);
+    if (e.key === 'ArrowLeft') show(i - 1);
+  });
+</script>
+</body>
+</html>
